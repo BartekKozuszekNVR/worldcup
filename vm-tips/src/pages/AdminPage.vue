@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from '../stores/auth'
 import { useScoresStore } from '../stores/scores'
 import { groupMatches, GROUPS } from '../data/groupMatches'
 import { teams } from '../data/teams'
+import {
+  roundOf32Rules,
+  roundOf16Rules,
+  quarterFinalRules,
+  semiFinalRules,
+  finalRule,
+} from '../data/bracketRules'
+import { thirdPlaceCombinations } from '../data/thirdPlaceCombinations'
 import ScoreInput from '../components/ScoreInput.vue'
 import type { AuthUser, MatchStage } from '../types'
 
@@ -16,6 +24,17 @@ const scoresStore = useScoresStore()
 
 const tab = ref('users')
 
+// --- Team helpers ---
+const teamsByCode = Object.fromEntries(teams.map(t => [t.code, t]))
+
+function teamName(code: string): string {
+  return teamsByCode[code]?.name ?? code
+}
+
+function teamOption(code: string) {
+  return { label: teamName(code), value: code }
+}
+
 const teamOptions = teams.map(t => ({ label: t.name, value: t.code }))
 
 function groupTeamOptions(group: string) {
@@ -24,7 +43,7 @@ function groupTeamOptions(group: string) {
     .map(t => ({ label: t.name, value: t.code }))
 }
 
-// Flatten all group matches
+// --- Match results (unchanged) ---
 const allMatches = Object.entries(groupMatches).flatMap(([, matches]) =>
   matches.map(m => ({ ...m }))
 )
@@ -33,8 +52,207 @@ const resultInputs = reactive<Record<string, { homeScore: number | null; awaySco
   Object.fromEntries(allMatches.map(m => [m.id, { homeScore: null, awayScore: null }]))
 )
 
+// --- Progress data ---
 const progressData = reactive<Record<string, string>>({})
 
+// --- Third-place combination lookup ---
+const thirdPlaceGroupMap = computed(() => {
+  // Map: group letter → team code (from bestThird selections)
+  const map: Record<string, string> = {}
+  for (let i = 1; i <= 8; i++) {
+    const code = progressData[`bestThird_${i}`]
+    if (code) {
+      const team = teamsByCode[code]
+      if (team) {
+        map[team.group] = code
+      }
+    }
+  }
+  return map
+})
+
+const thirdPlaceCombination = computed(() => {
+  const qualifyingGroups = Object.keys(thirdPlaceGroupMap.value).sort()
+  if (qualifyingGroups.length !== 8) return null
+  return thirdPlaceCombinations.find(
+    c => c.groups.join(',') === qualifyingGroups.join(',')
+  ) ?? null
+})
+
+// --- Resolve a bracket reference to a team code ---
+function resolveR32Team(ref: string): string | null {
+  if (ref.startsWith('3rd_')) {
+    const slot = ref.replace('3rd_', '') as keyof NonNullable<typeof thirdPlaceCombination.value>['assignments']
+    const combo = thirdPlaceCombination.value
+    if (!combo) return null
+    const sourceGroup = combo.assignments[slot]
+    if (!sourceGroup) return null
+    return thirdPlaceGroupMap.value[sourceGroup] ?? null
+  }
+  if (ref.startsWith('1')) {
+    const group = ref.slice(1)
+    return progressData[`group${group}_winner`] || null
+  }
+  if (ref.startsWith('2')) {
+    const group = ref.slice(1)
+    return progressData[`group${group}_runner`] || null
+  }
+  return null
+}
+
+// --- Bracket options (computed) ---
+const r32Options = computed(() => {
+  return roundOf32Rules.map((rule, idx) => {
+    const home = resolveR32Team(rule.home)
+    const away = resolveR32Team(rule.away)
+    const options = [home, away].filter(Boolean).map(code => teamOption(code!))
+    return { matchNum: idx + 1, id: rule.id, home, away, options }
+  })
+})
+
+function resolveWinnerRef(ref: string): string | null {
+  // 'W-R32-1' → progressData['r32_1_winner']
+  const m = ref.match(/^W-(R32|R16|QF|SF)-(\d+)$/)
+  if (!m) return null
+  const [, round, num] = m
+  const key = `${round.toLowerCase()}_${num}_winner`
+  return progressData[key] || null
+}
+
+const r16Options = computed(() => {
+  return roundOf16Rules.map((rule, idx) => {
+    const home = resolveWinnerRef(rule.home)
+    const away = resolveWinnerRef(rule.away)
+    const options = [home, away].filter(Boolean).map(code => teamOption(code!))
+    return { matchNum: idx + 1, id: rule.id, home, away, options }
+  })
+})
+
+const qfOptions = computed(() => {
+  return quarterFinalRules.map((rule, idx) => {
+    const home = resolveWinnerRef(rule.home)
+    const away = resolveWinnerRef(rule.away)
+    const options = [home, away].filter(Boolean).map(code => teamOption(code!))
+    return { matchNum: idx + 1, id: rule.id, home, away, options }
+  })
+})
+
+const sfOptions = computed(() => {
+  return semiFinalRules.map((rule, idx) => {
+    const home = resolveWinnerRef(rule.home)
+    const away = resolveWinnerRef(rule.away)
+    const options = [home, away].filter(Boolean).map(code => teamOption(code!))
+    return { matchNum: idx + 1, id: rule.id, home, away, options }
+  })
+})
+
+const finalOptions = computed(() => {
+  const home = resolveWinnerRef(finalRule.home)
+  const away = resolveWinnerRef(finalRule.away)
+  const options = [home, away].filter(Boolean).map(code => teamOption(code!))
+  return { home, away, options }
+})
+
+// --- Cascading invalidation ---
+// When upstream changes, clear invalid downstream selections
+watch(
+  () => GROUPS.map(g => `${progressData[`group${g}_winner`]}|${progressData[`group${g}_runner`]}`).join(','),
+  () => {
+    // Validate R32 selections
+    for (let i = 0; i < roundOf32Rules.length; i++) {
+      const key = `r32_${i + 1}_winner`
+      const val = progressData[key]
+      if (val) {
+        const match = r32Options.value[i]
+        if (!match.options.some(o => o.value === val)) {
+          delete progressData[key]
+        }
+      }
+    }
+  }
+)
+
+watch(
+  () => Array.from({ length: 8 }, (_, i) => progressData[`bestThird_${i + 1}`]).join(','),
+  () => {
+    // Third-place changes can invalidate R32 selections that use 3rd_X slots
+    for (let i = 0; i < roundOf32Rules.length; i++) {
+      const rule = roundOf32Rules[i]
+      if (rule.home.startsWith('3rd_') || rule.away.startsWith('3rd_')) {
+        const key = `r32_${i + 1}_winner`
+        const val = progressData[key]
+        if (val) {
+          const match = r32Options.value[i]
+          if (!match.options.some(o => o.value === val)) {
+            delete progressData[key]
+          }
+        }
+      }
+    }
+  }
+)
+
+watch(
+  () => Array.from({ length: 16 }, (_, i) => progressData[`r32_${i + 1}_winner`]).join(','),
+  () => {
+    for (let i = 0; i < roundOf16Rules.length; i++) {
+      const key = `r16_${i + 1}_winner`
+      const val = progressData[key]
+      if (val) {
+        const match = r16Options.value[i]
+        if (!match.options.some(o => o.value === val)) {
+          delete progressData[key]
+        }
+      }
+    }
+  }
+)
+
+watch(
+  () => Array.from({ length: 8 }, (_, i) => progressData[`r16_${i + 1}_winner`]).join(','),
+  () => {
+    for (let i = 0; i < quarterFinalRules.length; i++) {
+      const key = `qf_${i + 1}_winner`
+      const val = progressData[key]
+      if (val) {
+        const match = qfOptions.value[i]
+        if (!match.options.some(o => o.value === val)) {
+          delete progressData[key]
+        }
+      }
+    }
+  }
+)
+
+watch(
+  () => Array.from({ length: 4 }, (_, i) => progressData[`qf_${i + 1}_winner`]).join(','),
+  () => {
+    for (let i = 0; i < semiFinalRules.length; i++) {
+      const key = `sf_${i + 1}_winner`
+      const val = progressData[key]
+      if (val) {
+        const match = sfOptions.value[i]
+        if (!match.options.some(o => o.value === val)) {
+          delete progressData[key]
+        }
+      }
+    }
+  }
+)
+
+watch(
+  () => `${progressData['sf_1_winner']}|${progressData['sf_2_winner']}`,
+  () => {
+    const val = progressData['champion']
+    if (val) {
+      if (!finalOptions.value.options.some(o => o.value === val)) {
+        delete progressData['champion']
+      }
+    }
+  }
+)
+
+// --- User management ---
 function showResetPassword(user: AuthUser) {
   $q.dialog({
     title: t('admin.resetPassword'),
@@ -69,6 +287,7 @@ function showDeleteUser(user: AuthUser) {
   })
 }
 
+// --- Match result saving ---
 async function saveMatchResult(match: { id: string; home: string; away: string }) {
   const input = resultInputs[match.id]
   if (input.homeScore === null || input.awayScore === null) return
@@ -95,8 +314,27 @@ function confirmClearResults() {
   })
 }
 
+// --- Progress saving ---
 async function saveAllProgress() {
-  await scoresStore.saveProgress(progressData)
+  // Build the save payload with derived scoring keys
+  const payload: Record<string, string> = { ...progressData }
+
+  // Derive semifinalists from QF winners
+  for (let i = 1; i <= 4; i++) {
+    const qfWinner = progressData[`qf_${i}_winner`]
+    if (qfWinner) {
+      payload[`semifinalist_${i}`] = qfWinner
+    }
+  }
+  // Derive finalists from SF winners
+  for (let i = 1; i <= 2; i++) {
+    const sfWinner = progressData[`sf_${i}_winner`]
+    if (sfWinner) {
+      payload[`finalist_${i}`] = sfWinner
+    }
+  }
+
+  await scoresStore.saveProgress(payload)
   $q.notify({ type: 'positive', message: t('admin.saved') })
 }
 
@@ -112,6 +350,7 @@ function confirmClearProgress() {
   })
 }
 
+// --- Lifecycle ---
 onMounted(async () => {
   await authStore.loadUsers()
   await scoresStore.loadAdminResults()
@@ -122,7 +361,7 @@ onMounted(async () => {
       resultInputs[r.matchId].awayScore = r.awayScore
     }
   }
-  // Populate progress data
+  // Populate progress data from saved state
   Object.assign(progressData, scoresStore.bonusData)
 })
 </script>
@@ -185,60 +424,209 @@ onMounted(async () => {
 
       <!-- Progress tab -->
       <q-tab-panel name="progress">
-        <div class="text-h6 q-mb-sm">{{ t('admin.bestThird') }}</div>
-        <div class="row q-gutter-sm q-mb-md">
-          <q-select
-            v-for="i in 8"
-            :key="i"
-            v-model="progressData[`third_${i}`]"
-            :options="teamOptions"
-            emit-value
-            map-options
-            dense
-            outlined
-            :label="`#${i}`"
-            style="min-width: 140px"
-          />
-        </div>
-
+        <!-- Group Results -->
         <div class="text-h6 q-mb-sm">{{ t('admin.groupResults') }}</div>
-        <div class="row q-gutter-sm q-mb-md">
+        <div class="row q-gutter-sm q-mb-lg">
           <div v-for="group in GROUPS" :key="group" class="col-6 col-sm-4 col-md-3">
             <q-select
-              v-model="progressData[`winner_${group}`]"
+              v-model="progressData[`group${group}_winner`]"
               :options="groupTeamOptions(group)"
               emit-value
               map-options
               dense
               outlined
               clearable
-              :label="`${group} ${t('admin.winner')}`"
+              :label="`${group} - ${t('admin.winner')}`"
             />
             <q-select
-              v-model="progressData[`runner_${group}`]"
+              v-model="progressData[`group${group}_runner`]"
               :options="groupTeamOptions(group)"
               emit-value
               map-options
               dense
               outlined
               clearable
-              :label="`${group} ${t('admin.runnerUp')}`"
+              :label="`${group} - ${t('admin.runnerUp')}`"
               class="q-mt-xs"
             />
           </div>
         </div>
 
-        <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }}</div>
-        <div class="row q-gutter-sm q-mb-md">
-          <q-input v-for="i in 4" :key="`sf${i}`" v-model="progressData[`sf_${i}`]" :label="`SF ${i}`" dense outlined style="width:140px" />
-        </div>
-        <div class="row q-gutter-sm q-mb-md">
-          <q-input v-for="i in 2" :key="`f${i}`" v-model="progressData[`final_${i}`]" :label="`Final ${i}`" dense outlined style="width:140px" />
-        </div>
-        <div class="row q-gutter-sm q-mb-md">
-          <q-input v-model="progressData['champion']" :label="t('admin.champion')" dense outlined style="width:140px" />
+        <!-- Best Third Place -->
+        <div class="text-h6 q-mb-sm">{{ t('admin.bestThird') }}</div>
+        <div class="row q-gutter-sm q-mb-lg">
+          <q-select
+            v-for="i in 8"
+            :key="i"
+            v-model="progressData[`bestThird_${i}`]"
+            :options="teamOptions"
+            emit-value
+            map-options
+            dense
+            outlined
+            clearable
+            :label="`#${i}`"
+            style="min-width: 140px"
+          />
         </div>
 
+        <!-- Round of 32 -->
+        <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - R32</div>
+        <div class="q-mb-lg">
+          <div v-for="match in r32Options" :key="match.id" class="row items-center q-mb-xs">
+            <div class="col-auto text-caption text-grey" style="width: 60px">{{ match.id }}</div>
+            <div class="col-auto text-body2" style="width: 140px">
+              {{ match.home ? teamName(match.home) : 'TBD' }}
+            </div>
+            <div class="col-auto text-caption q-mx-xs">vs</div>
+            <div class="col-auto text-body2" style="width: 140px">
+              {{ match.away ? teamName(match.away) : 'TBD' }}
+            </div>
+            <q-icon name="arrow_right" class="q-mx-xs" />
+            <q-select
+              v-model="progressData[`r32_${match.matchNum}_winner`]"
+              :options="match.options"
+              :disable="match.options.length < 2"
+              emit-value
+              map-options
+              dense
+              outlined
+              clearable
+              label="Winner"
+              style="min-width: 150px"
+            />
+          </div>
+        </div>
+
+        <!-- Round of 16 -->
+        <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - R16</div>
+        <div class="q-mb-lg">
+          <div v-for="match in r16Options" :key="match.id" class="row items-center q-mb-xs">
+            <div class="col-auto text-caption text-grey" style="width: 60px">{{ match.id }}</div>
+            <div class="col-auto text-body2" style="width: 140px">
+              {{ match.home ? teamName(match.home) : 'TBD' }}
+            </div>
+            <div class="col-auto text-caption q-mx-xs">vs</div>
+            <div class="col-auto text-body2" style="width: 140px">
+              {{ match.away ? teamName(match.away) : 'TBD' }}
+            </div>
+            <q-icon name="arrow_right" class="q-mx-xs" />
+            <q-select
+              v-model="progressData[`r16_${match.matchNum}_winner`]"
+              :options="match.options"
+              :disable="match.options.length < 2"
+              emit-value
+              map-options
+              dense
+              outlined
+              clearable
+              label="Winner"
+              style="min-width: 150px"
+            />
+          </div>
+        </div>
+
+        <!-- Quarter-Finals -->
+        <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - QF</div>
+        <div class="q-mb-lg">
+          <div v-for="match in qfOptions" :key="match.id" class="row items-center q-mb-xs">
+            <div class="col-auto text-caption text-grey" style="width: 60px">{{ match.id }}</div>
+            <div class="col-auto text-body2" style="width: 140px">
+              {{ match.home ? teamName(match.home) : 'TBD' }}
+            </div>
+            <div class="col-auto text-caption q-mx-xs">vs</div>
+            <div class="col-auto text-body2" style="width: 140px">
+              {{ match.away ? teamName(match.away) : 'TBD' }}
+            </div>
+            <q-icon name="arrow_right" class="q-mx-xs" />
+            <q-select
+              v-model="progressData[`qf_${match.matchNum}_winner`]"
+              :options="match.options"
+              :disable="match.options.length < 2"
+              emit-value
+              map-options
+              dense
+              outlined
+              clearable
+              label="Winner"
+              style="min-width: 150px"
+            />
+          </div>
+        </div>
+
+        <!-- Semi-Finals -->
+        <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - SF</div>
+        <div class="q-mb-lg">
+          <div v-for="match in sfOptions" :key="match.id" class="row items-center q-mb-xs">
+            <div class="col-auto text-caption text-grey" style="width: 60px">{{ match.id }}</div>
+            <div class="col-auto text-body2" style="width: 140px">
+              {{ match.home ? teamName(match.home) : 'TBD' }}
+            </div>
+            <div class="col-auto text-caption q-mx-xs">vs</div>
+            <div class="col-auto text-body2" style="width: 140px">
+              {{ match.away ? teamName(match.away) : 'TBD' }}
+            </div>
+            <q-icon name="arrow_right" class="q-mx-xs" />
+            <q-select
+              v-model="progressData[`sf_${match.matchNum}_winner`]"
+              :options="match.options"
+              :disable="match.options.length < 2"
+              emit-value
+              map-options
+              dense
+              outlined
+              clearable
+              label="Winner"
+              style="min-width: 150px"
+            />
+          </div>
+        </div>
+
+        <!-- Final -->
+        <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - Final</div>
+        <div class="q-mb-lg">
+          <div class="row items-center q-mb-xs">
+            <div class="col-auto text-caption text-grey" style="width: 60px">FINAL</div>
+            <div class="col-auto text-body2" style="width: 140px">
+              {{ finalOptions.home ? teamName(finalOptions.home) : 'TBD' }}
+            </div>
+            <div class="col-auto text-caption q-mx-xs">vs</div>
+            <div class="col-auto text-body2" style="width: 140px">
+              {{ finalOptions.away ? teamName(finalOptions.away) : 'TBD' }}
+            </div>
+            <q-icon name="arrow_right" class="q-mx-xs" />
+            <q-select
+              v-model="progressData['champion']"
+              :options="finalOptions.options"
+              :disable="finalOptions.options.length < 2"
+              emit-value
+              map-options
+              dense
+              outlined
+              clearable
+              label="Champion"
+              style="min-width: 150px"
+            />
+          </div>
+        </div>
+
+        <!-- Derived info display -->
+        <div v-if="progressData['qf_1_winner'] || progressData['sf_1_winner'] || progressData['champion']" class="q-mb-lg">
+          <q-banner rounded class="bg-blue-1">
+            <div class="text-subtitle2 q-mb-xs">Auto-derived scoring keys:</div>
+            <div v-if="progressData['qf_1_winner']" class="text-caption">
+              Semifinalists: {{ [1,2,3,4].map(i => progressData[`qf_${i}_winner`]).filter(Boolean).map(c => teamName(c!)).join(', ') }}
+            </div>
+            <div v-if="progressData['sf_1_winner']" class="text-caption">
+              Finalists: {{ [1,2].map(i => progressData[`sf_${i}_winner`]).filter(Boolean).map(c => teamName(c!)).join(', ') }}
+            </div>
+            <div v-if="progressData['champion']" class="text-caption">
+              Champion: {{ teamName(progressData['champion']) }}
+            </div>
+          </q-banner>
+        </div>
+
+        <!-- Save / Clear buttons -->
         <div class="row q-gutter-sm">
           <q-btn color="primary" :label="t('common.save')" @click="saveAllProgress" />
           <q-btn color="negative" :label="t('admin.clearAll')" @click="confirmClearProgress" />

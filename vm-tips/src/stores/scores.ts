@@ -73,9 +73,12 @@ export const useScoresStore = defineStore('scores', () => {
   }
 
   async function saveProgress(data: Record<string, string>) {
+    const entries = Object.entries(data)
+      .filter(([_, v]) => v && v.length > 0)
+      .map(([key, teamCode]) => ({ key, teamCode }))
     await apiFetch('/api/admin/progress', {
       method: 'POST',
-      body: data,
+      body: { entries },
     })
     bonusData.value = data
   }
