@@ -25,7 +25,9 @@ export default defineEventHandler(async () => {
 
   // Add rank to each user
   return result.map((user, index) => ({
-    ...user,
+    userId: user.id,
+    username: user.username,
+    avatarUrl: user.avatarUrl,
     rank: index + 1,
     matchPoints: user.matchPoints || 0,
     bonusPoints: user.bonusPoints || 0,
