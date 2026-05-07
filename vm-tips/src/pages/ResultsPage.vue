@@ -20,13 +20,13 @@ function teamName(code: string | null | undefined): string {
 
 function stageName(stage: string): string {
   switch (stage) {
-    case 'group': return t('results.stageGroup', 'Group')
-    case 'r32': return t('results.stageR32', 'Round of 32')
-    case 'r16': return t('results.stageR16', 'Round of 16')
-    case 'qf': return t('results.stageQF', 'Quarter-final')
-    case 'sf': return t('results.stageSF', 'Semi-final')
-    case 'third': return t('results.stageThird', 'Third place')
-    case 'final': return t('results.stageFinal', 'Final')
+    case 'group': return t('results.stageGroup')
+    case 'r32': return t('results.stageR32')
+    case 'r16': return t('results.stageR16')
+    case 'qf': return t('results.stageQF')
+    case 'sf': return t('results.stageSF')
+    case 'third': return t('results.stageThird')
+    case 'final': return t('results.stageFinal')
     default: return stage
   }
 }
@@ -73,13 +73,13 @@ function pointTypeColor(type: string): string {
 
 function pointTypeLabel(type: string): string {
   switch (type) {
-    case 'exact': return t('results.pointExact', 'Exact')
+    case 'exact': return t('results.pointExact')
     case 'result':
-    case 'correctResult': return t('results.pointResult', 'Result')
+    case 'correctResult': return t('results.pointResult')
     case 'half':
-    case 'halfScore': return t('results.pointHalf', 'Half')
-    case 'outcome': return t('results.pointOutcome', 'Outcome')
-    default: return t('results.pointMiss', 'Miss')
+    case 'halfScore': return t('results.pointHalf')
+    case 'outcome': return t('results.pointOutcome')
+    default: return t('results.pointMiss')
   }
 }
 
@@ -132,7 +132,7 @@ onMounted(async () => {
     <div class="text-h6 q-mb-sm">{{ t('results.matchResults') }}</div>
 
     <div v-if="!scoresStore.loading && matchResults.length === 0" class="text-grey-6 text-center q-pa-lg">
-      {{ t('results.noResults', 'No results yet') }}
+      {{ t('results.noResults') }}
     </div>
 
     <div class="result-cards">

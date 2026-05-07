@@ -90,7 +90,20 @@
     "bonusPoints": "Bonus points",
     "totalPoints": "Total points",
     "actual": "Actual",
-    "predicted": "Predicted"
+    "predicted": "Predicted",
+    "noResults": "No results yet",
+    "stageGroup": "Group",
+    "stageR32": "Round of 32",
+    "stageR16": "Round of 16",
+    "stageQF": "Quarter-final",
+    "stageSF": "Semi-final",
+    "stageThird": "Third place",
+    "stageFinal": "Final",
+    "pointExact": "Exact",
+    "pointResult": "Result",
+    "pointHalf": "Half",
+    "pointOutcome": "Outcome",
+    "pointMiss": "Miss"
   },
   "leaderboard": {
     "title": "Leaderboard",

@@ -90,7 +90,20 @@
     "bonusPoints": "Bonuspoäng",
     "totalPoints": "Totalpoäng",
     "actual": "Faktiskt",
-    "predicted": "Tippat"
+    "predicted": "Tippat",
+    "noResults": "Inga resultat ännu",
+    "stageGroup": "Gruppspel",
+    "stageR32": "Sextondelsfinaler",
+    "stageR16": "Åttondelsfinaler",
+    "stageQF": "Kvartsfinal",
+    "stageSF": "Semifinal",
+    "stageThird": "Bronsmatch",
+    "stageFinal": "Final",
+    "pointExact": "Exakt",
+    "pointResult": "Resultat",
+    "pointHalf": "Halv",
+    "pointOutcome": "Utfall",
+    "pointMiss": "Miss"
   },
   "leaderboard": {
     "title": "Topplista",
