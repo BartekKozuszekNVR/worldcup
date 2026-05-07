@@ -55,6 +55,115 @@ const resultInputs = reactive<Record<string, { homeScore: number | null; awaySco
 // --- Progress data ---
 const progressData = reactive<Record<string, string>>({})
 
+// --- Knockout match scores ---
+const knockoutMatchIds = [
+  ...roundOf32Rules.map(r => r.id),
+  ...roundOf16Rules.map(r => r.id),
+  ...quarterFinalRules.map(r => r.id),
+  ...semiFinalRules.map(r => r.id),
+  'FINAL',
+]
+
+const knockoutScores = reactive<Record<string, { homeScore: number | null; awayScore: number | null }>>(
+  Object.fromEntries(knockoutMatchIds.map(id => [id, { homeScore: null, awayScore: null }]))
+)
+
+// --- Group standings computation from match results ---
+interface TeamStanding {
+  code: string
+  played: number
+  won: number
+  drawn: number
+  lost: number
+  gf: number
+  ga: number
+  gd: number
+  points: number
+}
+
+const groupStandings = computed(() => {
+  const standings: Record<string, TeamStanding[]> = {}
+
+  for (const group of GROUPS) {
+    const groupTeams = teams.filter(t => t.group === group)
+    const teamMap: Record<string, TeamStanding> = {}
+
+    for (const team of groupTeams) {
+      teamMap[team.code] = {
+        code: team.code,
+        played: 0, won: 0, drawn: 0, lost: 0,
+        gf: 0, ga: 0, gd: 0, points: 0,
+      }
+    }
+
+    // Process results for this group's matches
+    const groupMatchList = groupMatches[group] || []
+    for (const match of groupMatchList) {
+      const result = scoresStore.results.find(r => r.matchId === match.id)
+      if (!result || result.homeScore === null || result.awayScore === null) continue
+
+      const home = teamMap[match.home]
+      const away = teamMap[match.away]
+      if (!home || !away) continue
+
+      home.played++
+      away.played++
+      home.gf += result.homeScore
+      home.ga += result.awayScore
+      away.gf += result.awayScore
+      away.ga += result.homeScore
+
+      if (result.homeScore > result.awayScore) {
+        home.won++; home.points += 3
+        away.lost++
+      } else if (result.homeScore < result.awayScore) {
+        away.won++; away.points += 3
+        home.lost++
+      } else {
+        home.drawn++; home.points += 1
+        away.drawn++; away.points += 1
+      }
+    }
+
+    // Compute GD and sort
+    const sorted = Object.values(teamMap)
+      .map(t => ({ ...t, gd: t.gf - t.ga }))
+      .sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf)
+
+    standings[group] = sorted
+  }
+
+  return standings
+})
+
+// Check if a group has all 6 matches completed
+function isGroupComplete(group: string): boolean {
+  const groupMatchList = groupMatches[group] || []
+  return groupMatchList.every(match =>
+    scoresStore.results.some(r => r.matchId === match.id && r.homeScore !== null && r.awayScore !== null)
+  )
+}
+
+// Auto-fill group winners/runners when standings are computed
+watch(
+  () => scoresStore.results.length,
+  () => {
+    for (const group of GROUPS) {
+      if (!isGroupComplete(group)) continue
+      const standing = groupStandings.value[group]
+      if (!standing || standing.length < 2) continue
+      // Only auto-fill if not already manually set
+      if (!progressData[`group${group}_winner`]) {
+        progressData[`group${group}_winner`] = standing[0].code
+      }
+      if (!progressData[`group${group}_runner`]) {
+        progressData[`group${group}_runner`] = standing[1].code
+      }
+    }
+  },
+  { immediate: true }
+)
+
 // --- Third-place combination lookup ---
 const thirdPlaceGroupMap = computed(() => {
   // Map: group letter → team code (from bestThird selections)
@@ -341,27 +450,89 @@ async function populateTestResults() {
 }
 
 // --- Progress saving ---
+function getKnockoutStage(matchId: string): MatchStage {
+  if (matchId.startsWith('R32')) return 'r32'
+  if (matchId.startsWith('R16')) return 'r16'
+  if (matchId.startsWith('QF')) return 'qf'
+  if (matchId.startsWith('SF')) return 'sf'
+  if (matchId === 'FINAL') return 'final'
+  return 'group'
+}
+
+function getKnockoutMatchTeams(matchId: string): { home: string | null; away: string | null } {
+  // Find the computed options for this match to get home/away teams
+  if (matchId.startsWith('R32-')) {
+    const idx = parseInt(matchId.replace('R32-', '')) - 1
+    const match = r32Options.value[idx]
+    return { home: match?.home ?? null, away: match?.away ?? null }
+  }
+  if (matchId.startsWith('R16-')) {
+    const idx = parseInt(matchId.replace('R16-', '')) - 1
+    const match = r16Options.value[idx]
+    return { home: match?.home ?? null, away: match?.away ?? null }
+  }
+  if (matchId.startsWith('QF-')) {
+    const idx = parseInt(matchId.replace('QF-', '')) - 1
+    const match = qfOptions.value[idx]
+    return { home: match?.home ?? null, away: match?.away ?? null }
+  }
+  if (matchId.startsWith('SF-')) {
+    const idx = parseInt(matchId.replace('SF-', '')) - 1
+    const match = sfOptions.value[idx]
+    return { home: match?.home ?? null, away: match?.away ?? null }
+  }
+  if (matchId === 'FINAL') {
+    return { home: finalOptions.value.home, away: finalOptions.value.away }
+  }
+  return { home: null, away: null }
+}
+
 async function saveAllProgress() {
-  // Build the save payload with derived scoring keys
-  const payload: Record<string, string> = { ...progressData }
+  $q.loading.show({ message: 'Saving...' })
+  try {
+    // Build the save payload with derived scoring keys
+    const payload: Record<string, string> = { ...progressData }
 
-  // Derive semifinalists from QF winners
-  for (let i = 1; i <= 4; i++) {
-    const qfWinner = progressData[`qf_${i}_winner`]
-    if (qfWinner) {
-      payload[`semifinalist_${i}`] = qfWinner
+    // Derive semifinalists from QF winners
+    for (let i = 1; i <= 4; i++) {
+      const qfWinner = progressData[`qf_${i}_winner`]
+      if (qfWinner) {
+        payload[`semifinalist_${i}`] = qfWinner
+      }
     }
-  }
-  // Derive finalists from SF winners
-  for (let i = 1; i <= 2; i++) {
-    const sfWinner = progressData[`sf_${i}_winner`]
-    if (sfWinner) {
-      payload[`finalist_${i}`] = sfWinner
+    // Derive finalists from SF winners
+    for (let i = 1; i <= 2; i++) {
+      const sfWinner = progressData[`sf_${i}_winner`]
+      if (sfWinner) {
+        payload[`finalist_${i}`] = sfWinner
+      }
     }
-  }
 
-  await scoresStore.saveProgress(payload)
-  $q.notify({ type: 'positive', message: t('admin.saved') })
+    // Save progress data
+    await scoresStore.saveProgress(payload)
+
+    // Save knockout match results (scores)
+    for (const matchId of knockoutMatchIds) {
+      const scores = knockoutScores[matchId]
+      if (scores.homeScore === null || scores.awayScore === null) continue
+      const { home, away } = getKnockoutMatchTeams(matchId)
+      if (!home || !away) continue
+      await scoresStore.saveResult({
+        matchId,
+        homeScore: scores.homeScore,
+        awayScore: scores.awayScore,
+        stage: getKnockoutStage(matchId),
+        homeTeam: home,
+        awayTeam: away,
+      })
+    }
+
+    $q.notify({ type: 'positive', message: t('admin.saved') })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to save' })
+  } finally {
+    $q.loading.hide()
+  }
 }
 
 function confirmClearProgress() {
@@ -380,11 +551,16 @@ function confirmClearProgress() {
 onMounted(async () => {
   await authStore.loadUsers()
   await scoresStore.loadAdminResults()
-  // Populate resultInputs from existing results
+  // Populate resultInputs from existing results (group matches)
   for (const r of scoresStore.results) {
     if (resultInputs[r.matchId]) {
       resultInputs[r.matchId].homeScore = r.homeScore
       resultInputs[r.matchId].awayScore = r.awayScore
+    }
+    // Populate knockout scores from existing results
+    if (knockoutScores[r.matchId]) {
+      knockoutScores[r.matchId].homeScore = r.homeScore
+      knockoutScores[r.matchId].awayScore = r.awayScore
     }
   }
   // Populate progress data from saved state
@@ -455,6 +631,12 @@ onMounted(async () => {
         <div class="text-h6 q-mb-sm">{{ t('admin.groupResults') }}</div>
         <div class="row q-gutter-sm q-mb-lg">
           <div v-for="group in GROUPS" :key="group" class="col-6 col-sm-4 col-md-3">
+            <div class="text-subtitle2 q-mb-xs">{{ group }}</div>
+            <div v-if="groupStandings[group]?.length" class="q-mb-xs">
+              <div v-for="(team, idx) in groupStandings[group]" :key="team.code" class="text-caption" :class="{ 'text-bold': idx < 2 }">
+                {{ idx + 1 }}. {{ teamName(team.code) }} ({{ team.points }}p, {{ team.gd > 0 ? '+' : '' }}{{ team.gd }})
+              </div>
+            </div>
             <q-select
               v-model="progressData[`group${group}_winner`]"
               :options="groupTeamOptions(group)"
@@ -463,7 +645,7 @@ onMounted(async () => {
               dense
               outlined
               clearable
-              :label="`${group} - ${t('admin.winner')}`"
+              :label="t('admin.winner')"
             />
             <q-select
               v-model="progressData[`group${group}_runner`]"
@@ -473,7 +655,7 @@ onMounted(async () => {
               dense
               outlined
               clearable
-              :label="`${group} - ${t('admin.runnerUp')}`"
+              :label="t('admin.runnerUp')"
               class="q-mt-xs"
             />
           </div>
@@ -500,13 +682,31 @@ onMounted(async () => {
         <!-- Round of 32 -->
         <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - R32</div>
         <div class="q-mb-lg">
-          <div v-for="match in r32Options" :key="match.id" class="row items-center q-mb-xs">
-            <div class="col-auto text-caption text-grey" style="width: 60px">{{ match.id }}</div>
-            <div class="col-auto text-body2" style="width: 140px">
+          <div v-for="match in r32Options" :key="match.id" class="row items-center q-mb-sm">
+            <div class="col-auto text-caption text-grey" style="width: 55px">{{ match.id }}</div>
+            <div class="col-auto text-body2" style="min-width: 100px">
               {{ match.home ? teamName(match.home) : 'TBD' }}
             </div>
-            <div class="col-auto text-caption q-mx-xs">vs</div>
-            <div class="col-auto text-body2" style="width: 140px">
+            <q-input
+              v-model.number="knockoutScores[match.id].homeScore"
+              type="number"
+              dense
+              outlined
+              style="width: 50px"
+              class="q-mx-xs"
+              :disable="!match.home || !match.away"
+            />
+            <span class="text-caption q-mx-xs">-</span>
+            <q-input
+              v-model.number="knockoutScores[match.id].awayScore"
+              type="number"
+              dense
+              outlined
+              style="width: 50px"
+              class="q-mx-xs"
+              :disable="!match.home || !match.away"
+            />
+            <div class="col-auto text-body2" style="min-width: 100px">
               {{ match.away ? teamName(match.away) : 'TBD' }}
             </div>
             <q-icon name="arrow_right" class="q-mx-xs" />
@@ -520,7 +720,7 @@ onMounted(async () => {
               outlined
               clearable
               label="Winner"
-              style="min-width: 150px"
+              style="min-width: 140px"
             />
           </div>
         </div>
@@ -528,13 +728,31 @@ onMounted(async () => {
         <!-- Round of 16 -->
         <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - R16</div>
         <div class="q-mb-lg">
-          <div v-for="match in r16Options" :key="match.id" class="row items-center q-mb-xs">
-            <div class="col-auto text-caption text-grey" style="width: 60px">{{ match.id }}</div>
-            <div class="col-auto text-body2" style="width: 140px">
+          <div v-for="match in r16Options" :key="match.id" class="row items-center q-mb-sm">
+            <div class="col-auto text-caption text-grey" style="width: 55px">{{ match.id }}</div>
+            <div class="col-auto text-body2" style="min-width: 100px">
               {{ match.home ? teamName(match.home) : 'TBD' }}
             </div>
-            <div class="col-auto text-caption q-mx-xs">vs</div>
-            <div class="col-auto text-body2" style="width: 140px">
+            <q-input
+              v-model.number="knockoutScores[match.id].homeScore"
+              type="number"
+              dense
+              outlined
+              style="width: 50px"
+              class="q-mx-xs"
+              :disable="!match.home || !match.away"
+            />
+            <span class="text-caption q-mx-xs">-</span>
+            <q-input
+              v-model.number="knockoutScores[match.id].awayScore"
+              type="number"
+              dense
+              outlined
+              style="width: 50px"
+              class="q-mx-xs"
+              :disable="!match.home || !match.away"
+            />
+            <div class="col-auto text-body2" style="min-width: 100px">
               {{ match.away ? teamName(match.away) : 'TBD' }}
             </div>
             <q-icon name="arrow_right" class="q-mx-xs" />
@@ -548,7 +766,7 @@ onMounted(async () => {
               outlined
               clearable
               label="Winner"
-              style="min-width: 150px"
+              style="min-width: 140px"
             />
           </div>
         </div>
@@ -556,13 +774,31 @@ onMounted(async () => {
         <!-- Quarter-Finals -->
         <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - QF</div>
         <div class="q-mb-lg">
-          <div v-for="match in qfOptions" :key="match.id" class="row items-center q-mb-xs">
-            <div class="col-auto text-caption text-grey" style="width: 60px">{{ match.id }}</div>
-            <div class="col-auto text-body2" style="width: 140px">
+          <div v-for="match in qfOptions" :key="match.id" class="row items-center q-mb-sm">
+            <div class="col-auto text-caption text-grey" style="width: 55px">{{ match.id }}</div>
+            <div class="col-auto text-body2" style="min-width: 100px">
               {{ match.home ? teamName(match.home) : 'TBD' }}
             </div>
-            <div class="col-auto text-caption q-mx-xs">vs</div>
-            <div class="col-auto text-body2" style="width: 140px">
+            <q-input
+              v-model.number="knockoutScores[match.id].homeScore"
+              type="number"
+              dense
+              outlined
+              style="width: 50px"
+              class="q-mx-xs"
+              :disable="!match.home || !match.away"
+            />
+            <span class="text-caption q-mx-xs">-</span>
+            <q-input
+              v-model.number="knockoutScores[match.id].awayScore"
+              type="number"
+              dense
+              outlined
+              style="width: 50px"
+              class="q-mx-xs"
+              :disable="!match.home || !match.away"
+            />
+            <div class="col-auto text-body2" style="min-width: 100px">
               {{ match.away ? teamName(match.away) : 'TBD' }}
             </div>
             <q-icon name="arrow_right" class="q-mx-xs" />
@@ -576,7 +812,7 @@ onMounted(async () => {
               outlined
               clearable
               label="Winner"
-              style="min-width: 150px"
+              style="min-width: 140px"
             />
           </div>
         </div>
@@ -584,13 +820,31 @@ onMounted(async () => {
         <!-- Semi-Finals -->
         <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - SF</div>
         <div class="q-mb-lg">
-          <div v-for="match in sfOptions" :key="match.id" class="row items-center q-mb-xs">
-            <div class="col-auto text-caption text-grey" style="width: 60px">{{ match.id }}</div>
-            <div class="col-auto text-body2" style="width: 140px">
+          <div v-for="match in sfOptions" :key="match.id" class="row items-center q-mb-sm">
+            <div class="col-auto text-caption text-grey" style="width: 55px">{{ match.id }}</div>
+            <div class="col-auto text-body2" style="min-width: 100px">
               {{ match.home ? teamName(match.home) : 'TBD' }}
             </div>
-            <div class="col-auto text-caption q-mx-xs">vs</div>
-            <div class="col-auto text-body2" style="width: 140px">
+            <q-input
+              v-model.number="knockoutScores[match.id].homeScore"
+              type="number"
+              dense
+              outlined
+              style="width: 50px"
+              class="q-mx-xs"
+              :disable="!match.home || !match.away"
+            />
+            <span class="text-caption q-mx-xs">-</span>
+            <q-input
+              v-model.number="knockoutScores[match.id].awayScore"
+              type="number"
+              dense
+              outlined
+              style="width: 50px"
+              class="q-mx-xs"
+              :disable="!match.home || !match.away"
+            />
+            <div class="col-auto text-body2" style="min-width: 100px">
               {{ match.away ? teamName(match.away) : 'TBD' }}
             </div>
             <q-icon name="arrow_right" class="q-mx-xs" />
@@ -604,7 +858,7 @@ onMounted(async () => {
               outlined
               clearable
               label="Winner"
-              style="min-width: 150px"
+              style="min-width: 140px"
             />
           </div>
         </div>
@@ -612,13 +866,31 @@ onMounted(async () => {
         <!-- Final -->
         <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - Final</div>
         <div class="q-mb-lg">
-          <div class="row items-center q-mb-xs">
-            <div class="col-auto text-caption text-grey" style="width: 60px">FINAL</div>
-            <div class="col-auto text-body2" style="width: 140px">
+          <div class="row items-center q-mb-sm">
+            <div class="col-auto text-caption text-grey" style="width: 55px">FINAL</div>
+            <div class="col-auto text-body2" style="min-width: 100px">
               {{ finalOptions.home ? teamName(finalOptions.home) : 'TBD' }}
             </div>
-            <div class="col-auto text-caption q-mx-xs">vs</div>
-            <div class="col-auto text-body2" style="width: 140px">
+            <q-input
+              v-model.number="knockoutScores['FINAL'].homeScore"
+              type="number"
+              dense
+              outlined
+              style="width: 50px"
+              class="q-mx-xs"
+              :disable="!finalOptions.home || !finalOptions.away"
+            />
+            <span class="text-caption q-mx-xs">-</span>
+            <q-input
+              v-model.number="knockoutScores['FINAL'].awayScore"
+              type="number"
+              dense
+              outlined
+              style="width: 50px"
+              class="q-mx-xs"
+              :disable="!finalOptions.home || !finalOptions.away"
+            />
+            <div class="col-auto text-body2" style="min-width: 100px">
               {{ finalOptions.away ? teamName(finalOptions.away) : 'TBD' }}
             </div>
             <q-icon name="arrow_right" class="q-mx-xs" />
@@ -632,7 +904,7 @@ onMounted(async () => {
               outlined
               clearable
               label="Champion"
-              style="min-width: 150px"
+              style="min-width: 140px"
             />
           </div>
         </div>
