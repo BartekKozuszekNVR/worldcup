@@ -18,6 +18,12 @@ const tab = ref('users')
 
 const teamOptions = teams.map(t => ({ label: t.name, value: t.code }))
 
+function groupTeamOptions(group: string) {
+  return teams
+    .filter(t => t.group === group)
+    .map(t => ({ label: t.name, value: t.code }))
+}
+
 // Flatten all group matches
 const allMatches = Object.entries(groupMatches).flatMap(([, matches]) =>
   matches.map(m => ({ ...m }))
@@ -198,8 +204,27 @@ onMounted(async () => {
         <div class="text-h6 q-mb-sm">{{ t('admin.groupResults') }}</div>
         <div class="row q-gutter-sm q-mb-md">
           <div v-for="group in GROUPS" :key="group" class="col-6 col-sm-4 col-md-3">
-            <q-input v-model="progressData[`winner_${group}`]" :label="`${group} ${t('admin.winner')}`" dense outlined />
-            <q-input v-model="progressData[`runner_${group}`]" :label="`${group} ${t('admin.runnerUp')}`" dense outlined class="q-mt-xs" />
+            <q-select
+              v-model="progressData[`winner_${group}`]"
+              :options="groupTeamOptions(group)"
+              emit-value
+              map-options
+              dense
+              outlined
+              clearable
+              :label="`${group} ${t('admin.winner')}`"
+            />
+            <q-select
+              v-model="progressData[`runner_${group}`]"
+              :options="groupTeamOptions(group)"
+              emit-value
+              map-options
+              dense
+              outlined
+              clearable
+              :label="`${group} ${t('admin.runnerUp')}`"
+              class="q-mt-xs"
+            />
           </div>
         </div>
 
