@@ -333,7 +333,7 @@ async function populateTestResults() {
       })
     }
     $q.notify({ type: 'positive', message: `${allMatches.length} test results saved` })
-  } catch (e) {
+  } catch {
     $q.notify({ type: 'negative', message: 'Failed to save test data' })
   } finally {
     $q.loading.hide()
