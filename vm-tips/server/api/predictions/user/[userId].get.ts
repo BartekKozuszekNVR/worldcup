@@ -52,20 +52,22 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Check if user has completed all predictions
-  const scoreRecord = await db
-    .select({ predictionCount: userScores.predictionCount })
-    .from(userScores)
-    .where(eq(userScores.userId, userId))
-    .get()
+  // Check if user has completed all predictions (skip for admins)
+  if (user.role !== 'admin') {
+    const scoreRecord = await db
+      .select({ predictionCount: userScores.predictionCount })
+      .from(userScores)
+      .where(eq(userScores.userId, userId))
+      .get()
 
-  const predictionCount = scoreRecord?.predictionCount ?? 0
+    const predictionCount = scoreRecord?.predictionCount ?? 0
 
-  if (predictionCount < TOTAL_MATCHES) {
-    throw createError({
-      statusCode: 403,
-      message: 'User has not completed all predictions',
-    })
+    if (predictionCount < TOTAL_MATCHES) {
+      throw createError({
+        statusCode: 403,
+        message: 'User has not completed all predictions',
+      })
+    }
   }
 
   // Get all predictions for the target user

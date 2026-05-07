@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useQuasar } from 'quasar'
 import { usePredictionsStore } from '../stores/predictions'
 import { useAuthStore } from '../stores/auth'
 import { useGroupSimulation } from '../composables/useGroupSimulation'
@@ -13,6 +14,7 @@ import type { SimulatedTeam } from '../types'
 import { apiFetch } from '../composables/useApi'
 
 const { t } = useI18n()
+const $q = useQuasar()
 const predictionsStore = usePredictionsStore()
 const authStore = useAuthStore()
 
@@ -89,6 +91,9 @@ async function loadUserPredictions(userId: number | null) {
       predictions: Record<string, { homeScore: number | null; awayScore: number | null }>
     }>(`/api/predictions/user/${userId}`)
     otherPredictions.value = data.predictions
+  } catch (e: any) {
+    otherPredictions.value = null
+    $q.notify({ type: 'warning', message: e.message || t('advancing.loadError') })
   } finally {
     loading.value = false
   }
