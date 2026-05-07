@@ -310,8 +310,34 @@ function confirmClearResults() {
     cancel: true,
   }).onOk(async () => {
     await scoresStore.clearAllResults()
+    Object.values(resultInputs).forEach(v => { v.homeScore = null; v.awayScore = null })
     $q.notify({ type: 'positive', message: t('admin.cleared') })
   })
+}
+
+async function populateTestResults() {
+  $q.loading.show({ message: 'Generating test data...' })
+  try {
+    for (const match of allMatches) {
+      const homeScore = Math.floor(Math.random() * 4)
+      const awayScore = Math.floor(Math.random() * 4)
+      resultInputs[match.id].homeScore = homeScore
+      resultInputs[match.id].awayScore = awayScore
+      await scoresStore.saveResult({
+        matchId: match.id,
+        homeScore,
+        awayScore,
+        stage: 'group' as MatchStage,
+        homeTeam: match.home,
+        awayTeam: match.away,
+      })
+    }
+    $q.notify({ type: 'positive', message: `${allMatches.length} test results saved` })
+  } catch (e) {
+    $q.notify({ type: 'negative', message: 'Failed to save test data' })
+  } finally {
+    $q.loading.hide()
+  }
 }
 
 // --- Progress saving ---
@@ -400,8 +426,9 @@ onMounted(async () => {
 
       <!-- Match Results tab -->
       <q-tab-panel name="results">
-        <div class="row items-center q-mb-md">
+        <div class="row items-center q-gutter-sm q-mb-md">
           <q-btn color="negative" :label="t('admin.clearAll')" @click="confirmClearResults" />
+          <q-btn color="orange" label="Testdata" icon="science" @click="populateTestResults" />
         </div>
         <div v-for="match in allMatches" :key="match.id" class="admin-match-row">
           <div class="text-caption text-grey q-mb-xs">{{ match.id }}</div>
