@@ -1,0 +1,236 @@
+[
+  {
+    "name": "Stormy morning",
+    "colors": [
+      "#6A8AA8",
+      "#BEDDFC",
+      "#88BDF2",
+      "#38495A"
+    ]
+  },
+  {
+    "name": "Mossy hollow",
+    "colors": [
+      "#636B2F",
+      "#B9C095",
+      "#D4DE94",
+      "#3D4126"
+    ]
+  },
+  {
+    "name": "Blue eclipse",
+    "colors": [
+      "#272657",
+      "#8686AD",
+      "#515081",
+      "#0F0E47"
+    ]
+  },
+  {
+    "name": "Lush forest",
+    "colors": [
+      "#2E6F40",
+      "#CEFFDC",
+      "#68BA7F",
+      "#243E2C"
+    ]
+  },
+  {
+    "name": "Golden taupe",
+    "colors": [
+      "#D8B74B",
+      "#BDB76B",
+      "#FDFBD4",
+      "#CE8946"
+    ]
+  },
+  {
+    "name": "Wisteria bloom",
+    "colors": [
+      "#D7D7FF",
+      "#9400D3",
+      "#D8BFD8",
+      "#ED80E9"
+    ]
+  },
+  {
+    "name": "Lavender fields",
+    "colors": [
+      "#FDFAD5",
+      "#BCB96A",
+      "#C1BFFF",
+      "#D06DFC"
+    ]
+  },
+  {
+    "name": "Wildflowers",
+    "colors": [
+      "#A9DCAB",
+      "#519754",
+      "#DBAAA6",
+      "#BE92BE"
+    ]
+  },
+  {
+    "name": "Country garden",
+    "colors": [
+      "#FFFFE3",
+      "#DBD4FF",
+      "#808135",
+      "#723480"
+    ]
+  },
+  {
+    "name": "Fresh peach",
+    "colors": [
+      "#FFD4AC",
+      "#FFB6AC",
+      "#E39A7A",
+      "#DCB16B"
+    ]
+  },
+  {
+    "name": "Cherry blossom",
+    "colors": [
+      "#F3CCCC",
+      "#FFFFFF",
+      "#D5F3D8",
+      "#FFB7C5"
+    ]
+  },
+  {
+    "name": "Pastel garden",
+    "colors": [
+      "#CC6F7F",
+      "#F0B8B8",
+      "#A2AE9D",
+      "#54463A"
+    ]
+  },
+  {
+    "name": "Cobalt sky",
+    "colors": [
+      "#1959B3",
+      "#000080",
+      "#82C8E5",
+      "#6D8196"
+    ]
+  },
+  {
+    "name": "Quite clear",
+    "colors": [
+      "#CBCBCB",
+      "#F2F2F2",
+      "#174C38",
+      "#4E1717"
+    ]
+  },
+  {
+    "name": "Quiet luxury",
+    "colors": [
+      "#F6E6C9",
+      "#E8D69F",
+      "#D9BBB0",
+      "#AC9D8D"
+    ]
+  },
+  {
+    "name": "Night sands",
+    "colors": [
+      "#CBBD94",
+      "#FBE8B3",
+      "#80775D",
+      "#564A23"
+    ]
+  },
+  {
+    "name": "Honeycomb",
+    "colors": [
+      "#FFC720",
+      "#F9E076",
+      "#FFFDD0",
+      "#895129"
+    ]
+  },
+  {
+    "name": "Charming seaside",
+    "colors": [
+      "#B3EBF1",
+      "#85D1DC",
+      "#B6F2D2",
+      "#C9FDF2"
+    ]
+  },
+  {
+    "name": "Calm blue",
+    "colors": [
+      "#90D4FF",
+      "#58BAFF",
+      "#77B2D5",
+      "#517992"
+    ]
+  },
+  {
+    "name": "Mountain mist",
+    "colors": [
+      "#7B8DA0",
+      "#B0C4DE",
+      "#01796F",
+      "#5A5A5A"
+    ]
+  },
+  {
+    "name": "Frozen lake",
+    "colors": [
+      "#7B8DA0",
+      "#ADD8E6",
+      "#FFFAFA",
+      "#000080"
+    ]
+  },
+  {
+    "name": "Coastal morning",
+    "colors": [
+      "#9DCB80",
+      "#89CFF0",
+      "#F5F5DC",
+      "#82C8E5"
+    ]
+  },
+  {
+    "name": "Eucalyptus grove",
+    "colors": [
+      "#B9B494",
+      "#898989",
+      "#F2F0EF",
+      "#4B6E48"
+    ]
+  },
+  {
+    "name": "Soft spring",
+    "colors": [
+      "#6495ED",
+      "#90B9D6",
+      "#89CFAA",
+      "#85DECB"
+    ]
+  },
+  {
+    "name": "Autumn leaves",
+    "colors": [
+      "#FEB344",
+      "#DB9B3A",
+      "#B37E2E",
+      "#62441A"
+    ]
+  },
+  {
+    "name": "Winter chill",
+    "colors": [
+      "#B7E4EA",
+      "#94B1B5",
+      "#507D82",
+      "#0B2E32"
+    ]
+  }
+]

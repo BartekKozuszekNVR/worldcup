@@ -1,0 +1,61 @@
+{
+  "name": "vm-tips",
+  "version": "0.0.2",
+  "description": "VM Tips 2026 - World Cup Predictions",
+  "productName": "VM Tips 2026",
+  "author": "Bartekkozuszek <43315677+Bartekkozuszek@users.noreply.github.com>",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "lint": "eslint -c ./eslint.config.js \"./src*/**/*.{js,cjs,mjs,vue,ts}\"",
+    "test": "echo \"No test specified\" && exit 0",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:client": "quasar dev",
+    "dev:server": "nitro dev",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "quasar build",
+    "build:server": "nitro build",
+    "preview": "nitro preview",
+    "postinstall": "quasar prepare",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.0",
+    "@quasar/extras": "^1.16.4",
+    "bcryptjs": "^3.0.3",
+    "canvas-confetti": "^1.9.3",
+    "drizzle-orm": "^0.45.1",
+    "h3": "^1.15.5",
+    "nanoid": "^5.1.6",
+    "pinia": "^2.2.0",
+    "quasar": "^2.16.0",
+    "vue": "^3.5.22",
+    "vue-i18n": "^11.2.8",
+    "vue-router": "^4.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.14.0",
+    "@quasar/app-vite": "2.0.9",
+    "@types/canvas-confetti": "^1.6.4",
+    "@typescript-eslint/eslint-plugin": "^8.53.1",
+    "@typescript-eslint/parser": "^8.53.1",
+    "autoprefixer": "^10.4.2",
+    "concurrently": "^9.2.1",
+    "drizzle-kit": "^0.31.8",
+    "eslint": "^9.14.0",
+    "eslint-plugin-vue": "^10.4.0",
+    "globals": "^16.4.0",
+    "nitropack": "^2.13.1",
+    "postcss": "^8.4.14",
+    "typescript": "^5.7.0",
+    "vite-plugin-checker": "^0.11.0",
+    "vue-eslint-parser": "^10.2.0"
+  },
+  "engines": {
+    "node": "^28 || ^26 || ^24 || ^22 || ^20",
+    "npm": ">= 6.13.4",
+    "yarn": ">= 1.21.1"
+  }
+}
