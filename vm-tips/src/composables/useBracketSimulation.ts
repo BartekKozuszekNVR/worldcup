@@ -80,6 +80,23 @@ export function useBracketSimulation(
         const thirdTeam = thirdPlaceTeams.find(t => t.group === fromGroup)
         resolved[`3rd_${key}`] = thirdTeam?.team.code ?? null
       }
+    } else if (qualifyingGroups.length === 8) {
+      // Fallback: assign qualifying thirds to slots in sorted order
+      // avoiding own-group conflicts where possible
+      const assignmentKeys = ['A', 'B', 'D', 'E', 'G', 'I', 'K', 'L'] as const
+      const available = [...qualifyingGroups].sort()
+      const used = new Set<string>()
+
+      for (const key of assignmentKeys) {
+        // Prefer a group that doesn't match the slot letter
+        const pick = available.find(g => !used.has(g) && g !== key)
+          ?? available.find(g => !used.has(g))
+        if (pick) {
+          const thirdTeam = thirdPlaceTeams.find(t => t.group === pick)
+          resolved[`3rd_${key}`] = thirdTeam?.team.code ?? null
+          used.add(pick)
+        }
+      }
     }
 
     // Resolve R32
