@@ -30,16 +30,18 @@ export function useKnockoutAdvancers(
 
     // Rank third-place teams
     const ranked = [...thirdPlaceTeams].sort((a, b) => {
-      // Apply manual overrides
+      // Natural stats first
+      if (b.points !== a.points) return b.points - a.points
+      if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff
+      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor
+
+      // Stats equal — use manual overrides to break tie
       const oa = overrides[a.code]
       const ob = overrides[b.code]
       if (oa !== undefined && ob !== undefined) return oa - ob
       if (oa !== undefined) return -1
       if (ob !== undefined) return 1
 
-      if (b.points !== a.points) return b.points - a.points
-      if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff
-      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor
       return a.code.localeCompare(b.code)
     })
 

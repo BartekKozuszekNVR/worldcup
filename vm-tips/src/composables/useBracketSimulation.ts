@@ -47,17 +47,18 @@ export function useBracketSimulation(
     const overrides = thirdPlaceOverrides?.() ?? {}
     const qualifyingGroups = thirdPlaceTeams
       .sort((a, b) => {
-        // Manual overrides take priority (team code → rank)
+        // Natural stats first
+        if (b.team.points !== a.team.points) return b.team.points - a.team.points
+        if (b.team.goalDiff !== a.team.goalDiff) return b.team.goalDiff - a.team.goalDiff
+        if (b.team.goalsFor !== a.team.goalsFor) return b.team.goalsFor - a.team.goalsFor
+
+        // Stats equal — use manual overrides to break tie
         const oa = overrides[a.team.code]
         const ob = overrides[b.team.code]
         if (oa !== undefined && ob !== undefined) return oa - ob
         if (oa !== undefined) return -1
         if (ob !== undefined) return 1
 
-        // Fallback: pts → GD → GS → alphabetical
-        if (b.team.points !== a.team.points) return b.team.points - a.team.points
-        if (b.team.goalDiff !== a.team.goalDiff) return b.team.goalDiff - a.team.goalDiff
-        if (b.team.goalsFor !== a.team.goalsFor) return b.team.goalsFor - a.team.goalsFor
         return a.team.code.localeCompare(b.team.code)
       })
       .slice(0, 8)
