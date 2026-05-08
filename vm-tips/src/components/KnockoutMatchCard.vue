@@ -1,5 +1,9 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+import { teams } from '../data/teams'
 import TeamFlag from './TeamFlag.vue'
+
+const { locale } = useI18n()
 
 const props = defineProps<{
   matchId: string
@@ -16,6 +20,13 @@ const emit = defineEmits<{
   'update:awayScore': [value: number | null]
   'update:penaltyWinner': [value: string | null]
 }>()
+
+function teamName(code: string | null): string {
+  if (!code) return 'TBD'
+  const team = teams.find(t => t.code === code)
+  if (!team) return code
+  return locale.value === 'sv' ? team.name : team.nameEn
+}
 
 function parseScore(val: string | number | null): number | null {
   if (val === null || val === '' || val === undefined) return null
@@ -35,7 +46,7 @@ const isDraw = () =>
         <div class="row items-center no-wrap col">
           <TeamFlag :code="homeTeam ?? 'UN'" size="22px" />
           <span class="q-ml-xs text-weight-medium text-caption">
-            {{ homeTeam ?? 'TBD' }}
+            {{ teamName(homeTeam) }}
           </span>
         </div>
 
@@ -71,7 +82,7 @@ const isDraw = () =>
         <!-- Away team -->
         <div class="row items-center no-wrap col justify-end">
           <span class="q-mr-xs text-weight-medium text-caption">
-            {{ awayTeam ?? 'TBD' }}
+            {{ teamName(awayTeam) }}
           </span>
           <TeamFlag :code="awayTeam ?? 'UN'" size="22px" />
         </div>
@@ -83,8 +94,8 @@ const isDraw = () =>
         <q-btn-toggle
           :model-value="penaltyWinner"
           :options="[
-            { label: homeTeam ?? '?', value: homeTeam },
-            { label: awayTeam ?? '?', value: awayTeam },
+            { label: teamName(homeTeam), value: homeTeam },
+            { label: teamName(awayTeam), value: awayTeam },
           ]"
           dense
           no-caps
