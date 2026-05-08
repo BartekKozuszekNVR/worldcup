@@ -19,7 +19,7 @@ export interface BracketMatch {
 
 export function useBracketSimulation(
   groupStandings: () => Record<string, SimulatedTeam[]>,
-  thirdPlaceOverrides?: () => Record<string, string[]>
+  thirdPlaceOverrides?: () => Record<string, number>
 ) {
   const bracket = computed<BracketMatch[]>(() => {
     const standings = groupStandings()
@@ -43,32 +43,25 @@ export function useBracketSimulation(
       }
     }
 
-    // Sort third-place teams to find best 8
+    // Sort third-place teams to find best 8, applying manual rank overrides
     const overrides = thirdPlaceOverrides?.() ?? {}
-    let qualifyingGroups: string[]
+    const qualifyingGroups = thirdPlaceTeams
+      .sort((a, b) => {
+        // Manual overrides take priority (team code → rank)
+        const oa = overrides[a.team.code]
+        const ob = overrides[b.team.code]
+        if (oa !== undefined && ob !== undefined) return oa - ob
+        if (oa !== undefined) return -1
+        if (ob !== undefined) return 1
 
-    if (Object.keys(overrides).length > 0) {
-      // Use overrides to determine which groups qualify
-      qualifyingGroups = Object.keys(overrides).length >= 8
-        ? Object.keys(overrides).slice(0, 8)
-        : thirdPlaceTeams
-            .sort((a, b) => {
-              if (b.team.points !== a.team.points) return b.team.points - a.team.points
-              if (b.team.goalDiff !== a.team.goalDiff) return b.team.goalDiff - a.team.goalDiff
-              return b.team.goalsFor - a.team.goalsFor
-            })
-            .slice(0, 8)
-            .map(t => t.group)
-    } else {
-      qualifyingGroups = thirdPlaceTeams
-        .sort((a, b) => {
-          if (b.team.points !== a.team.points) return b.team.points - a.team.points
-          if (b.team.goalDiff !== a.team.goalDiff) return b.team.goalDiff - a.team.goalDiff
-          return b.team.goalsFor - a.team.goalsFor
-        })
-        .slice(0, 8)
-        .map(t => t.group)
-    }
+        // Fallback: pts → GD → GS → alphabetical
+        if (b.team.points !== a.team.points) return b.team.points - a.team.points
+        if (b.team.goalDiff !== a.team.goalDiff) return b.team.goalDiff - a.team.goalDiff
+        if (b.team.goalsFor !== a.team.goalsFor) return b.team.goalsFor - a.team.goalsFor
+        return a.team.code.localeCompare(b.team.code)
+      })
+      .slice(0, 8)
+      .map(t => t.group)
 
     const sortedGroups = [...qualifyingGroups].sort()
 

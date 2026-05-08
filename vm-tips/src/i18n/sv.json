@@ -64,14 +64,16 @@
     "penaltyWinner": "Straffvinnare",
     "stageLockedHint": "Slutför föregående omgång för att låsa upp",
     "thirdPlaceTiebreaker": "Tiebreaker för tredjeplatslag",
-    "tiebreakerHelp": "Vissa tredjeplatslag har lika resultat. Tilldela deras ranking manuellt.",
-    "tiebreakerWarning": "Alla oavgjorda fall har inte lösts ännu.",
+    "tiebreakerHelp": "Vissa tredjeplatslag från olika grupper har identisk statistik (poäng, målskillnad, gjorda mål). Eftersom inbördes möten inte gäller mellan grupper måste du lösa det manuellt.",
+    "tiebreakerWarning": "Alla oavgjorda fall har inte lösts ännu. Detta påverkar vilka lag som hamnar i slutspelet.",
     "tiebreakerPositions": "Positioner {start}–{end}",
-    "tiebreakerCriteriaTitle": "FIFA:s rankingskriterier",
-    "criterion1": "Fler poäng",
-    "criterion2": "Bättre målskillnad",
-    "criterion3": "Fler gjorda mål",
-    "criterion4": "Fair play-poäng / lottning"
+    "tiebreakerCriteriaTitle": "FIFA:s rankingskriterier (treor mellan grupper)",
+    "criterion1": "Poäng i gruppspelet",
+    "criterion2": "Målskillnad i gruppspelet",
+    "criterion3": "Gjorda mål i gruppspelet",
+    "criterion4": "Fair play-poäng (spåras ej i denna app)",
+    "criterion5": "Lottning (lös manuellt ovan)",
+    "knockoutLockedByTiebreaker": "Lös alla tiebreakers för tredjeplatslag ovan innan du kan tippa slutspelet."
   },
   "advancing": {
     "title": "Lag som går vidare",
@@ -224,7 +226,7 @@
     "thirdPlaceCriteria2": "Målskillnad",
     "thirdPlaceCriteria3": "Gjorda mål",
     "thirdPlaceCriteria4": "Fair play-poäng (gula/röda kort)",
-    "thirdPlaceCriteria5": "FIFA:s världsranking",
+    "thirdPlaceCriteria5": "Lottning",
     "thirdPlaceNote": "Dina gruppspelstips beräknar automatiskt vilka treor som går vidare baserat på simulerade tabeller. Att tippa rätt 8 treor ger dig bonuspoäng!",
     "knockoutTitle": "Slutspel",
     "knockoutDesc": "32 lag tävlar i utslagsmatcher: 32-delsfinal → 16-delsfinal → Kvartsfinal → Semifinal → Bronsmatch → Final. Om en slutspelsmatch är oavgjord efter 90 minuter tippar du vinnaren på straffar."

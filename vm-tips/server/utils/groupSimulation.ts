@@ -2,6 +2,7 @@
 // Ported from src/composables/useGroupSimulation.ts
 
 import { groupMatches, teamsByGroup, GROUPS } from '../data/groupMatches'
+import { sortGroupStandings } from '../../shared/groupSorting'
 
 export interface SimulatedTeam {
   code: string
@@ -53,16 +54,6 @@ function applyMatch(team: SimulatedTeam, goalsFor: number, goalsAgainst: number)
   }
 }
 
-function sortStandings(standings: SimulatedTeam[]): SimulatedTeam[] {
-  return [...standings].sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points
-    if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff
-    if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor
-    // Alphabetical by team code as tiebreaker
-    return a.code.localeCompare(b.code)
-  })
-}
-
 /**
  * Calculate group standings from predictions for a single group
  */
@@ -98,8 +89,8 @@ export function calculateGroupStandings(
     applyMatch(away, prediction.awayScore, prediction.homeScore)
   }
 
-  // Sort and assign positions
-  const sorted = sortStandings(Object.values(table))
+  // Sort using FIFA-compliant tiebreaker (incl. head-to-head)
+  const sorted = sortGroupStandings(Object.values(table), matches, predictions)
   return sorted.map((team, index) => ({ ...team, position: index + 1 }))
 }
 

@@ -56,8 +56,8 @@ function setRank(teamCode: string, rank: number | null) {
       </div>
     </q-card-section>
 
-    <q-banner v-if="!allResolved" class="bg-warning text-white q-mx-md q-mb-sm" rounded>
-      <template #avatar><q-icon name="warning" /></template>
+    <q-banner v-if="!allResolved" class="bg-secondary text-white q-mx-md q-mb-sm" rounded>
+      <template #avatar><q-icon name="info" /></template>
       {{ $t('predictions.tiebreakerWarning') }}
     </q-banner>
 
@@ -102,6 +102,7 @@ function setRank(teamCode: string, rank: number | null) {
           <li>{{ $t('predictions.criterion2') }}</li>
           <li>{{ $t('predictions.criterion3') }}</li>
           <li>{{ $t('predictions.criterion4') }}</li>
+          <li>{{ $t('predictions.criterion5') }}</li>
         </ol>
       </q-card-section>
     </q-expansion-item>

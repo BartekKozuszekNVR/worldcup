@@ -39,7 +39,8 @@ export function useKnockoutAdvancers(
 
       if (b.points !== a.points) return b.points - a.points
       if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff
-      return b.goalsFor - a.goalsFor
+      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor
+      return a.code.localeCompare(b.code)
     })
 
     // Detect ties among positions 7-10 (the cutoff for 8 qualifying)

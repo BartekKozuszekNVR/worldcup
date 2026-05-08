@@ -64,14 +64,16 @@
     "penaltyWinner": "Penalty winner",
     "stageLockedHint": "Complete the previous stage to unlock",
     "thirdPlaceTiebreaker": "Third-place tiebreaker",
-    "tiebreakerHelp": "Some third-place teams are tied. Assign their final ranking manually.",
-    "tiebreakerWarning": "Not all ties have been resolved yet.",
+    "tiebreakerHelp": "Some third-place teams from different groups have identical stats (points, goal difference, goals scored). Since head-to-head cannot apply across groups, you must manually resolve the tie.",
+    "tiebreakerWarning": "Not all ties have been resolved yet. This affects which teams appear in the knockout bracket.",
     "tiebreakerPositions": "Positions {start}–{end}",
-    "tiebreakerCriteriaTitle": "FIFA ranking criteria",
-    "criterion1": "Higher number of points",
-    "criterion2": "Superior goal difference",
-    "criterion3": "Higher number of goals scored",
-    "criterion4": "Fair play points / drawing of lots"
+    "tiebreakerCriteriaTitle": "FIFA ranking criteria (third-place teams across groups)",
+    "criterion1": "Points earned in group stage",
+    "criterion2": "Goal difference in group stage",
+    "criterion3": "Goals scored in group stage",
+    "criterion4": "Fair play points (not tracked in this app)",
+    "criterion5": "Drawing of lots (resolve manually above)",
+    "knockoutLockedByTiebreaker": "Resolve all third-place tiebreakers above before entering knockout predictions."
   },
   "advancing": {
     "title": "Advancing teams",
@@ -224,7 +226,7 @@
     "thirdPlaceCriteria2": "Goal difference",
     "thirdPlaceCriteria3": "Goals scored",
     "thirdPlaceCriteria4": "Fair play points (yellow/red cards)",
-    "thirdPlaceCriteria5": "FIFA World Ranking",
+    "thirdPlaceCriteria5": "Drawing of lots",
     "thirdPlaceNote": "Your group stage predictions automatically calculate which third-placed teams advance based on simulated standings. Getting the right 8 third-placed teams earns you bonus points!",
     "knockoutTitle": "Knockout Stage",
     "knockoutDesc": "32 teams compete in single-elimination matches: Round of 32 → Round of 16 → Quarter-finals → Semi-finals → Third Place Match → Final. If a knockout match is tied after 90 minutes, you predict the penalty shootout winner."

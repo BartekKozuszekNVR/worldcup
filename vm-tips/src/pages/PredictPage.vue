@@ -46,7 +46,19 @@ const knockoutResult = useKnockoutAdvancers(
   () => tiebreakerOverrides.value
 )
 
-const { bracket } = useBracketSimulation(() => groupStandingsMap.value)
+const { bracket } = useBracketSimulation(
+  () => groupStandingsMap.value,
+  () => tiebreakerOverrides.value
+)
+
+// Check whether all third-place tiebreakers have been resolved
+const allTiesResolved = computed(() => {
+  const ties = knockoutResult.value.tieGroups
+  if (ties.length === 0) return true
+  return ties.every(tie =>
+    tie.teams.every(team => tiebreakerOverrides.value[team.code] !== undefined)
+  )
+})
 
 function updatePrediction(matchId: string, field: 'homeScore' | 'awayScore', value: number | null) {
   const current = store.predictions[matchId] ?? { homeScore: null, awayScore: null }
@@ -112,13 +124,20 @@ async function save() {
       </template>
 
       <!-- Knockout bracket -->
-      <template v-if="allGroupsFilled">
+      <template v-if="allGroupsFilled && allTiesResolved">
         <q-separator class="q-my-lg" />
         <KnockoutPredictionsPanel
           :bracket="bracket"
           :predictions="store.knockoutPredictions"
           @update:prediction="updateKnockoutPrediction"
         />
+      </template>
+      <template v-else-if="allGroupsFilled && !allTiesResolved">
+        <q-separator class="q-my-lg" />
+        <q-banner class="bg-secondary text-white q-mx-md q-mb-sm" rounded>
+          <template #avatar><q-icon name="lock" /></template>
+          {{ t('predictions.knockoutLockedByTiebreaker') }}
+        </q-banner>
       </template>
       </q-card>
     </template>

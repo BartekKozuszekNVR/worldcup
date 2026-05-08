@@ -1,6 +1,7 @@
 import { computed } from 'vue'
 import type { SimulatedTeam } from '../types'
 import { groupMatches, teamsByGroup } from '../data/groupMatches'
+import { sortGroupStandings } from '../../shared/groupSorting'
 
 export function useGroupSimulation(
   predictions: () => Record<string, { homeScore: number | null; awayScore: number | null }>,
@@ -66,12 +67,8 @@ export function useGroupSimulation(
       t.goalDiff = t.goalsFor - t.goalsAgainst
     }
 
-    // Sort
-    const sorted = Object.values(stats).sort((a, b) => {
-      if (b.points !== a.points) return b.points - a.points
-      if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff
-      return b.goalsFor - a.goalsFor
-    })
+    // Sort using FIFA-compliant tiebreaker (incl. head-to-head)
+    const sorted = sortGroupStandings(Object.values(stats), matches, preds)
 
     sorted.forEach((t, i) => {
       t.position = i + 1
