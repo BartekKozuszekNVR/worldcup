@@ -73,7 +73,8 @@
     "criterion3": "Gjorda mål i gruppspelet",
     "criterion4": "Fair play-poäng (spåras ej i denna app)",
     "criterion5": "Lottning (lös manuellt ovan)",
-    "knockoutLockedByTiebreaker": "Lös alla tiebreakers för tredjeplatslag ovan innan du kan tippa slutspelet."
+    "knockoutLockedByTiebreaker": "Lös alla tiebreakers för tredjeplatslag ovan innan du kan tippa slutspelet.",
+    "tiebreakerReset": "Återställ val"
   },
   "advancing": {
     "title": "Lag som går vidare",

@@ -50,9 +50,23 @@ function setRank(teamCode: string, rank: number | null) {
 <template>
   <q-card flat bordered class="q-mb-md">
     <q-card-section>
-      <div class="text-h6">{{ $t('predictions.thirdPlaceTiebreaker') }}</div>
-      <div class="text-caption text-grey-7 q-mt-xs">
-        {{ $t('predictions.tiebreakerHelp') }}
+      <div class="row items-center justify-between">
+        <div>
+          <div class="text-h6">{{ $t('predictions.thirdPlaceTiebreaker') }}</div>
+          <div class="text-caption text-grey-7 q-mt-xs">
+            {{ $t('predictions.tiebreakerHelp') }}
+          </div>
+        </div>
+        <q-btn
+          v-if="Object.keys(overrides).length > 0"
+          flat
+          dense
+          icon="restart_alt"
+          :label="$t('predictions.tiebreakerReset')"
+          color="negative"
+          :disable="locked"
+          @click="emit('update:overrides', {})"
+        />
       </div>
     </q-card-section>
 

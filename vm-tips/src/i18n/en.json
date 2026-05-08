@@ -73,7 +73,8 @@
     "criterion3": "Goals scored in group stage",
     "criterion4": "Fair play points (not tracked in this app)",
     "criterion5": "Drawing of lots (resolve manually above)",
-    "knockoutLockedByTiebreaker": "Resolve all third-place tiebreakers above before entering knockout predictions."
+    "knockoutLockedByTiebreaker": "Resolve all third-place tiebreakers above before entering knockout predictions.",
+    "tiebreakerReset": "Reset selections"
   },
   "advancing": {
     "title": "Advancing teams",
