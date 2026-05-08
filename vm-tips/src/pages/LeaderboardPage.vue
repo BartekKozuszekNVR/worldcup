@@ -14,7 +14,7 @@ const search = ref('')
 const celebrated = ref(false)
 
 interface RankedEntry {
-  _rank: number
+  rank: number
   userId: number
   username: string
   avatarUrl?: string | null
@@ -29,7 +29,7 @@ interface RankedEntry {
 }
 
 const rankedEntries = computed<RankedEntry[]>(() =>
-  store.entries.map((e, i) => ({ ...e, _rank: i + 1 }))
+  store.entries.map((e) => ({ ...e }))
 )
 
 const filteredEntries = computed(() => {
@@ -44,7 +44,7 @@ const isFirstPlace = computed(() => {
 })
 
 const columns = computed(() => [
-  { name: 'rank', label: t('leaderboard.rank'), field: '_rank', align: 'center' as const, sortable: true },
+  { name: 'rank', label: t('leaderboard.rank'), field: 'rank', align: 'center' as const, sortable: true },
   { name: 'user', label: t('leaderboard.user'), field: 'username', align: 'left' as const },
   { name: 'points', label: t('leaderboard.points'), field: 'totalPoints', align: 'center' as const, sortable: true },
   { name: 'exact', label: t('leaderboard.exact'), field: 'exactScores', align: 'center' as const },
@@ -109,10 +109,10 @@ onMounted(async () => {
     >
       <template #body-cell-rank="props">
         <q-td :props="props">
-          <img v-if="props.row._rank === 1" src="/favicon.ico" style="width: 24px; height: 24px;" />
-          <q-icon v-else-if="props.row._rank === 2" name="emoji_events" color="grey-6" size="md" />
-          <q-icon v-else-if="props.row._rank === 3" name="emoji_events" color="deep-orange" size="md" />
-          <span v-else>#{{ props.row._rank }}</span>
+          <img v-if="props.row.rank === 1" src="/favicon.ico" style="width: 24px; height: 24px;" />
+          <q-icon v-else-if="props.row.rank === 2" name="emoji_events" color="grey-6" size="md" />
+          <q-icon v-else-if="props.row.rank === 3" name="emoji_events" color="deep-orange" size="md" />
+          <span v-else>#{{ props.row.rank }}</span>
         </q-td>
       </template>
       <template #body-cell-user="props">
@@ -134,10 +134,10 @@ onMounted(async () => {
       <q-card v-for="entry in filteredEntries" :key="entry.userId" class="q-mb-sm">
         <q-card-section class="row items-center">
           <div class="q-mr-md">
-            <img v-if="entry._rank === 1" src="/favicon.ico" style="width: 32px; height: 32px;" />
-            <q-icon v-else-if="entry._rank === 2" name="emoji_events" color="grey-6" size="md" />
-            <q-icon v-else-if="entry._rank === 3" name="emoji_events" color="deep-orange" size="md" />
-            <span v-else class="text-h6">#{{ entry._rank }}</span>
+            <img v-if="entry.rank === 1" src="/favicon.ico" style="width: 32px; height: 32px;" />
+            <q-icon v-else-if="entry.rank === 2" name="emoji_events" color="grey-6" size="md" />
+            <q-icon v-else-if="entry.rank === 3" name="emoji_events" color="deep-orange" size="md" />
+            <span v-else class="text-h6">#{{ entry.rank }}</span>
           </div>
           <q-avatar size="36px" class="q-mr-sm">
             <img v-if="entry.avatarUrl" :src="entry.avatarUrl" />

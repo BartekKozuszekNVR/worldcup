@@ -16,6 +16,13 @@ function getStageFromMatchId(matchId: string): MatchStage {
   return 'group'
 }
 
+/**
+ * Scoring logic matching the authoritative server/utils/scoring.ts calculateBasePoints.
+ * Note: teamsMatch/isKnockout are not available here (no team mapping context),
+ * so the "correctResult" tier (knockout, different teams, same scoreline) is N/A.
+ * For the per-user results page this is acceptable since group matches always have
+ * teamsMatch=true and for knockout matches shown here the teams are the same.
+ */
 function calculateBasePoints(
   predHome: number | null,
   predAway: number | null,
@@ -26,17 +33,17 @@ function calculateBasePoints(
     return { points: 0, type: 'miss' }
   }
 
-  // Exact score
+  // 1. Exact score (5 pts)
   if (predHome === actualHome && predAway === actualAway) {
     return { points: MATCH_POINTS.exact, type: 'exact' }
   }
 
-  // Half score - one score matches
+  // 2. Half Score (1.5 pts) - home OR away score matches
   if (predHome === actualHome || predAway === actualAway) {
-    return { points: MATCH_POINTS.halfScore, type: 'half' }
+    return { points: MATCH_POINTS.halfScore, type: 'halfScore' }
   }
 
-  // Correct outcome (winner/draw)
+  // 3. Correct Outcome (1 pt) - right winner or draw, no score match
   const predOutcome = predHome > predAway ? 'home' : predHome < predAway ? 'away' : 'draw'
   const actualOutcome = actualHome > actualAway ? 'home' : actualHome < actualAway ? 'away' : 'draw'
 

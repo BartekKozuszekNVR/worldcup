@@ -29,7 +29,7 @@ const multiplierRows = computed(() => [
   { stage: t('help.roundOf16'), multiplier: '2×', example: t('help.r16Example') },
   { stage: t('help.quarterFinals'), multiplier: '2.5×', example: t('help.qfExample') },
   { stage: t('help.semiFinals'), multiplier: '3×', example: t('help.sfExample') },
-  { stage: t('help.thirdPlaceMatch'), multiplier: '3×', example: t('help.thirdExample') },
+  { stage: t('help.thirdPlaceMatch'), multiplier: '2×', example: t('help.thirdExample') },
   { stage: t('help.final'), multiplier: '4×', example: t('help.finalExample') },
 ])
 
@@ -41,12 +41,12 @@ const bonusColumns = computed(() => [
 ])
 
 const bonusRows = computed(() => [
-  { category: t('help.bonusGroupWinner'), perTeam: 2, teams: 12, max: 24 },
-  { category: t('help.bonusGroupRunner'), perTeam: 2, teams: 12, max: 24 },
-  { category: t('help.bonusThirdPlace'), perTeam: 3, teams: 8, max: 24 },
-  { category: t('help.bonusSemifinalist'), perTeam: 5, teams: 4, max: 20 },
-  { category: t('help.bonusFinalist'), perTeam: 7, teams: 2, max: 14 },
-  { category: t('help.bonusChampion'), perTeam: 10, teams: 1, max: 10 },
+  { category: t('help.bonusGroupWinner'), perTeam: 5, teams: 12, max: 60 },
+  { category: t('help.bonusGroupRunner'), perTeam: 3, teams: 12, max: 36 },
+  { category: t('help.bonusThirdPlace'), perTeam: 2, teams: 8, max: 16 },
+  { category: t('help.bonusSemifinalist'), perTeam: 10, teams: 4, max: 40 },
+  { category: t('help.bonusFinalist'), perTeam: 15, teams: 2, max: 30 },
+  { category: t('help.bonusChampion'), perTeam: 25, teams: 1, max: 25 },
 ])
 
 const maxBonus = computed(() =>

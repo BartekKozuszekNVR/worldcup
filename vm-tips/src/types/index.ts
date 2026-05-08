@@ -57,6 +57,7 @@ export interface LeaderboardEntry {
   userId: number
   username: string
   avatarUrl?: string | null
+  rank: number
   totalPoints: number
   matchPoints: number
   bonusPoints: number

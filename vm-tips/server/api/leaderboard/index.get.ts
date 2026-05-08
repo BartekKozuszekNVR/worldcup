@@ -4,7 +4,7 @@ import { users, userScores } from '../../database/schema'
 import { eq, desc } from 'drizzle-orm'
 
 export default defineEventHandler(async () => {
-  // Get all users with their scores, ordered by total points
+  // Get all users with their scores, ordered by total points (tiebreak: most exact scores)
   const result = await db
     .select({
       id: users.id,
@@ -21,21 +21,36 @@ export default defineEventHandler(async () => {
     })
     .from(users)
     .leftJoin(userScores, eq(users.id, userScores.userId))
-    .orderBy(desc(userScores.totalPoints))
+    .orderBy(desc(userScores.totalPoints), desc(userScores.exactScores))
 
-  // Add rank to each user
-  return result.map((user, index) => ({
-    userId: user.id,
-    username: user.username,
-    avatarUrl: user.avatarUrl,
-    rank: index + 1,
-    matchPoints: user.matchPoints || 0,
-    bonusPoints: user.bonusPoints || 0,
-    totalPoints: user.totalPoints || 0,
-    exactScores: user.exactScores || 0,
-    correctResults: user.correctResults || 0,
-    halfScoreCorrect: user.halfScoreCorrect || 0,
-    correctOutcomes: user.correctOutcomes || 0,
-    predictionCount: user.predictionCount || 0,
-  }))
+  // Add rank with shared ranks for tied users (same totalPoints + exactScores)
+  let currentRank = 1
+  return result.map((user, index) => {
+    const totalPoints = user.totalPoints || 0
+    const exactScores = user.exactScores || 0
+
+    if (index > 0) {
+      const prev = result[index - 1]
+      const prevTotal = prev.totalPoints || 0
+      const prevExact = prev.exactScores || 0
+      if (totalPoints !== prevTotal || exactScores !== prevExact) {
+        currentRank = index + 1
+      }
+    }
+
+    return {
+      userId: user.id,
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+      rank: currentRank,
+      matchPoints: user.matchPoints || 0,
+      bonusPoints: user.bonusPoints || 0,
+      totalPoints,
+      exactScores,
+      correctResults: user.correctResults || 0,
+      halfScoreCorrect: user.halfScoreCorrect || 0,
+      correctOutcomes: user.correctOutcomes || 0,
+      predictionCount: user.predictionCount || 0,
+    }
+  })
 })
