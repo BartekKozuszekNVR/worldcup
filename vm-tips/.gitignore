@@ -37,4 +37,7 @@ yarn-error.log*
 .nitro
 .output
 
+# Vercel build output
+.vercel
+
 nul

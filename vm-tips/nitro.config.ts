@@ -1,6 +1,9 @@
 import { defineNitroConfig } from 'nitropack/config'
 
 export default defineNitroConfig({
+  // Deploy as Vercel serverless functions
+  preset: 'vercel',
+
   // Use the server directory for API routes
   srcDir: 'server',
 

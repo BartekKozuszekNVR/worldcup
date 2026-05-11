@@ -97,7 +97,6 @@ const isDraw = () =>
             { label: teamName(homeTeam), value: homeTeam },
             { label: teamName(awayTeam), value: awayTeam },
           ]"
-          dense
           no-caps
           rounded
           toggle-color="primary"

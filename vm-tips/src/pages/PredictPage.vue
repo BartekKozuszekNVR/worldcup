@@ -125,7 +125,6 @@ async function save() {
 
       <!-- Knockout bracket -->
       <template v-if="allGroupsFilled && allTiesResolved">
-        <q-separator class="q-my-lg" />
         <KnockoutPredictionsPanel
           :bracket="bracket"
           :predictions="store.knockoutPredictions"
