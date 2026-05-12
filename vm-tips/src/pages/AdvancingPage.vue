@@ -10,8 +10,9 @@ import { useBracketSimulation } from '../composables/useBracketSimulation'
 import { GROUPS } from '../data/groupMatches'
 import { teams } from '../data/teams'
 import { isTournamentLocked } from '../../shared/constants'
-import type { SimulatedTeam } from '../types'
+import type { SimulatedTeam, KnockoutPrediction } from '../types'
 import { apiFetch } from '../composables/useApi'
+import TeamFlag from '../components/TeamFlag.vue'
 
 const { t } = useI18n()
 const $q = useQuasar()
@@ -21,6 +22,9 @@ const authStore = useAuthStore()
 const loading = ref(false)
 const selectedUserId = ref<number | null>(null)
 const otherPredictions = ref<Record<string, { homeScore: number | null; awayScore: number | null }> | null>(null)
+const otherKnockoutPredictions = ref<Record<string, KnockoutPrediction> | null>(null)
+const otherOverrides = ref<Record<string, number> | null>(null)
+const otherTopScorer = ref<string | null>(null)
 
 const tournamentStarted = computed(() => isTournamentLocked())
 
@@ -33,8 +37,18 @@ const userOptions = computed(() => {
 
 const canViewOthers = computed(() => authStore.isAdmin || tournamentStarted.value)
 
+// Active data — switches between current user and selected user
 const activePredictions = computed(() =>
   otherPredictions.value ?? predictionsStore.predictions
+)
+const activeKnockoutPredictions = computed(() =>
+  otherKnockoutPredictions.value ?? predictionsStore.knockoutPredictions
+)
+const activeOverrides = computed(() =>
+  otherOverrides.value ?? predictionsStore.tiebreakerOverrides
+)
+const activeTopScorer = computed(() =>
+  selectedUserId.value ? otherTopScorer.value : predictionsStore.topScorer
 )
 
 // Build group standings for all 12 groups
@@ -48,28 +62,27 @@ const allGroupStandings = computed<Record<string, SimulatedTeam[]>>(() => {
 })
 
 const advancers = computed(() => {
-  const knockoutResult = useKnockoutAdvancers(() => allGroupStandings.value)
+  const knockoutResult = useKnockoutAdvancers(
+    () => allGroupStandings.value,
+    () => activeOverrides.value
+  )
   return knockoutResult.value
 })
 
-const { bracket } = useBracketSimulation(() => allGroupStandings.value)
+const { bracket } = useBracketSimulation(
+  () => allGroupStandings.value,
+  () => activeOverrides.value,
+  () => activeKnockoutPredictions.value
+)
 
 const champion = computed(() => {
-  const finalMatch = bracket.value.find(m => m.id.startsWith('F'))
+  const finalMatch = bracket.value.find(m => m.id === 'FINAL')
   if (!finalMatch) return null
-  // Find knockout prediction for final
-  const kp = predictionsStore.knockoutPredictions
-  for (const key of Object.keys(kp)) {
-    if (key.startsWith('F') || key === 'final') {
-      const pred = kp[key]
-      if (pred.homeScore !== null && pred.awayScore !== null) {
-        if (pred.homeScore > pred.awayScore) return pred.homeTeam
-        if (pred.awayScore > pred.homeScore) return pred.awayTeam
-        return pred.penaltyWinner ?? null
-      }
-    }
-  }
-  return null
+  const pred = activeKnockoutPredictions.value['FINAL']
+  if (!pred || pred.homeScore === null || pred.awayScore === null) return null
+  if (pred.homeScore > pred.awayScore) return finalMatch.homeTeam
+  if (pred.awayScore > pred.homeScore) return finalMatch.awayTeam
+  return pred.penaltyWinner ?? null
 })
 
 function getGroupAdvancers(group: string): SimulatedTeam[] {
@@ -80,19 +93,60 @@ function getTeamName(code: string): string {
   return teams.find(t => t.code === code)?.name ?? code
 }
 
+const stages = [
+  { key: 'r32', label: 'Round of 32', prefix: 'R32-' },
+  { key: 'r16', label: 'Round of 16', prefix: 'R16-' },
+  { key: 'qf', label: 'Quarter-finals', prefix: 'QF-' },
+  { key: 'sf', label: 'Semi-finals', prefix: 'SF-' },
+  { key: 'third', label: 'Third place', prefix: 'THIRD' },
+  { key: 'final', label: 'Final', prefix: 'FINAL' },
+]
+
+function matchesForStage(prefix: string) {
+  if (prefix === 'THIRD' || prefix === 'FINAL') {
+    return bracket.value.filter(m => m.id === prefix)
+  }
+  return bracket.value.filter(m => m.id.startsWith(prefix))
+}
+
+function getMatchPrediction(matchId: string) {
+  return activeKnockoutPredictions.value[matchId] ?? null
+}
+
+function getMatchWinner(matchId: string, homeTeam: string | null, awayTeam: string | null): string | null {
+  const pred = getMatchPrediction(matchId)
+  if (!pred || pred.homeScore === null || pred.awayScore === null) return null
+  if (!homeTeam || !awayTeam) return null
+  if (pred.homeScore > pred.awayScore) return homeTeam
+  if (pred.awayScore > pred.homeScore) return awayTeam
+  return pred.penaltyWinner ?? null
+}
+
 async function loadUserPredictions(userId: number | null) {
   if (!userId) {
     otherPredictions.value = null
+    otherKnockoutPredictions.value = null
+    otherOverrides.value = null
+    otherTopScorer.value = null
     return
   }
   try {
     loading.value = true
     const data = await apiFetch<{
       predictions: Record<string, { homeScore: number | null; awayScore: number | null }>
+      knockoutPredictions: Record<string, KnockoutPrediction>
+      thirdPlaceOverrides: Record<string, number>
+      topScorer: string | null
     }>(`/api/predictions/user/${userId}`)
-    otherPredictions.value = data.predictions
+    otherPredictions.value = data.predictions ?? {}
+    otherKnockoutPredictions.value = data.knockoutPredictions ?? {}
+    otherOverrides.value = data.thirdPlaceOverrides ?? {}
+    otherTopScorer.value = data.topScorer ?? null
   } catch (e: any) {
     otherPredictions.value = null
+    otherKnockoutPredictions.value = null
+    otherOverrides.value = null
+    otherTopScorer.value = null
     $q.notify({ type: 'warning', message: e.message || t('advancing.loadError') })
   } finally {
     loading.value = false
@@ -186,19 +240,71 @@ onMounted(async () => {
       <q-card-section>
         <div class="text-h6">{{ t('advancing.knockout') }}</div>
       </q-card-section>
-      <q-card-section>
-        <div class="row q-gutter-sm">
-          <div v-for="match in bracket" :key="match.id" class="col-12 col-sm-6 col-md-4">
-            <q-card flat bordered class="q-pa-xs">
-              <div class="text-caption text-grey">{{ match.id }}</div>
-              <div class="row items-center justify-between">
-                <span>{{ match.homeTeam ? getTeamName(match.homeTeam) : '?' }}</span>
-                <span class="text-bold">vs</span>
-                <span>{{ match.awayTeam ? getTeamName(match.awayTeam) : '?' }}</span>
+
+      <q-card-section
+        v-for="stage in stages"
+        :key="stage.key"
+        class="q-pt-none"
+      >
+        <div class="text-subtitle1 text-weight-bold q-mb-sm">{{ stage.label }}</div>
+
+        <q-card
+          v-for="match in matchesForStage(stage.prefix)"
+          :key="match.id"
+          flat
+          bordered
+          class="q-mb-sm"
+        >
+          <q-card-section class="q-py-sm q-px-md">
+            <div class="row items-center no-wrap">
+              <!-- Home team -->
+              <div class="row items-center no-wrap col">
+                <TeamFlag :code="match.homeTeam ?? 'UN'" size="22px" />
+                <span
+                  class="team-name q-ml-xs text-caption"
+                  :class="{ 'text-weight-bold': getMatchWinner(match.id, match.homeTeam, match.awayTeam) === match.homeTeam }"
+                >
+                  {{ match.homeTeam ? getTeamName(match.homeTeam) : '?' }}
+                </span>
               </div>
-            </q-card>
-          </div>
-        </div>
+
+              <!-- Score -->
+              <div class="text-center q-mx-sm" style="min-width: 50px">
+                <template v-if="getMatchPrediction(match.id)?.homeScore !== null && getMatchPrediction(match.id)?.homeScore !== undefined">
+                  <span class="text-weight-bold">
+                    {{ getMatchPrediction(match.id)?.homeScore }} - {{ getMatchPrediction(match.id)?.awayScore }}
+                  </span>
+                </template>
+                <template v-else>
+                  <span class="text-grey-5">vs</span>
+                </template>
+              </div>
+
+              <!-- Away team -->
+              <div class="row items-center no-wrap col justify-end">
+                <span
+                  class="team-name q-mr-xs text-caption"
+                  :class="{ 'text-weight-bold': getMatchWinner(match.id, match.homeTeam, match.awayTeam) === match.awayTeam }"
+                >
+                  {{ match.awayTeam ? getTeamName(match.awayTeam) : '?' }}
+                </span>
+                <TeamFlag :code="match.awayTeam ?? 'UN'" size="22px" />
+              </div>
+            </div>
+
+            <!-- Penalty indicator -->
+            <div
+              v-if="getMatchPrediction(match.id)?.homeScore !== null && getMatchPrediction(match.id)?.homeScore === getMatchPrediction(match.id)?.awayScore && getMatchPrediction(match.id)?.penaltyWinner"
+              class="text-center q-mt-xs"
+            >
+              <q-chip dense size="sm" color="orange" text-color="white">
+                {{ t('predictions.penaltyWinner') }}: {{ getTeamName(getMatchPrediction(match.id)!.penaltyWinner!) }}
+              </q-chip>
+            </div>
+          </q-card-section>
+        </q-card>
+
+        <q-separator v-if="stage.key !== 'final'" class="q-mt-md" />
       </q-card-section>
     </q-card>
 
@@ -219,9 +325,19 @@ onMounted(async () => {
           <div class="text-h6">{{ t('advancing.topScorer') }}</div>
         </div>
         <div class="text-body1 q-mt-sm">
-          {{ predictionsStore.topScorer || t('advancing.noTopScorer') }}
+          {{ activeTopScorer || t('advancing.noTopScorer') }}
         </div>
       </q-card-section>
     </q-card>
   </q-page>
 </template>
+
+<style scoped>
+.team-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: block;
+}
+</style>

@@ -14,7 +14,6 @@ import KnockoutPredictionsPanel from '../components/KnockoutPredictionsPanel.vue
 const { t } = useI18n()
 const store = usePredictionsStore()
 
-const tiebreakerOverrides = ref<Record<string, number>>({})
 const saving = ref(false)
 
 onMounted(() => {
@@ -43,12 +42,12 @@ const allGroupsFilled = computed(() => {
 // Third place / knockout logic
 const knockoutResult = useKnockoutAdvancers(
   () => groupStandingsMap.value,
-  () => tiebreakerOverrides.value
+  () => store.tiebreakerOverrides
 )
 
 const { bracket } = useBracketSimulation(
   () => groupStandingsMap.value,
-  () => tiebreakerOverrides.value,
+  () => store.tiebreakerOverrides,
   () => store.knockoutPredictions
 )
 
@@ -57,7 +56,7 @@ const allTiesResolved = computed(() => {
   const ties = knockoutResult.value.tieGroups
   if (ties.length === 0) return true
   return ties.every(tie =>
-    tie.teams.every(team => tiebreakerOverrides.value[team.code] !== undefined)
+    tie.teams.every(team => store.tiebreakerOverrides[team.code] !== undefined)
   )
 })
 
@@ -119,8 +118,8 @@ async function save() {
         <q-separator class="q-my-lg" />
         <ThirdPlaceTiebreaker
           :ties="knockoutResult.tieGroups"
-          :overrides="tiebreakerOverrides"
-          @update:overrides="tiebreakerOverrides = $event"
+          :overrides="store.tiebreakerOverrides"
+          @update:overrides="store.tiebreakerOverrides = $event"
         />
       </template>
 
