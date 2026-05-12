@@ -15,6 +15,7 @@ import {
 } from '../data/bracketRules'
 import { thirdPlaceCombinations } from '../data/thirdPlaceCombinations'
 import ScoreInput from '../components/ScoreInput.vue'
+import { apiFetch } from '../composables/useApi'
 import type { AuthUser, MatchStage } from '../types'
 
 const { t } = useI18n()
@@ -23,6 +24,65 @@ const authStore = useAuthStore()
 const scoresStore = useScoresStore()
 
 const tab = ref('users')
+
+// --- Top scorer management ---
+interface TopScorerEntry {
+  userId: number
+  username: string
+  playerName: string | null
+  isCorrect: boolean
+}
+
+const topScorerEntries = ref<TopScorerEntry[]>([])
+const topScorerLoading = ref(false)
+
+async function loadTopScorerPredictions() {
+  try {
+    topScorerLoading.value = true
+    const data = await apiFetch<{ predictions: TopScorerEntry[] }>('/api/admin/top-scorers')
+    topScorerEntries.value = data.predictions ?? []
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to load top scorer predictions' })
+  } finally {
+    topScorerLoading.value = false
+  }
+}
+
+async function saveTopScorerAwards() {
+  try {
+    $q.loading.show({ message: 'Saving...' })
+    const awards = topScorerEntries.value.map(e => ({
+      userId: e.userId,
+      isCorrect: e.isCorrect,
+    }))
+    await apiFetch('/api/admin/top-scorers', {
+      method: 'POST',
+      body: { awards },
+    })
+    $q.notify({ type: 'positive', message: t('admin.saved') })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to save' })
+  } finally {
+    $q.loading.hide()
+  }
+}
+
+function addTopScorerToProgress() {
+  // Find next available index
+  let idx = 1
+  while (progressData[`topScorer_${idx}`]) idx++
+  progressData[`topScorer_${idx}`] = ''
+}
+
+function removeTopScorerFromProgress(key: string) {
+  delete progressData[key]
+}
+
+const topScorerProgressKeys = computed(() => {
+  return Object.keys(progressData)
+    .filter(k => k.startsWith('topScorer_'))
+    .sort()
+})
 
 // --- Team helpers ---
 const teamsByCode = Object.fromEntries(teams.map(t => [t.code, t]))
@@ -565,6 +625,8 @@ onMounted(async () => {
   }
   // Populate progress data from saved state
   Object.assign(progressData, scoresStore.bonusData)
+  // Load top scorer predictions
+  await loadTopScorerPredictions()
 })
 </script>
 
@@ -923,6 +985,54 @@ onMounted(async () => {
               Champion: {{ teamName(progressData['champion']) }}
             </div>
           </q-banner>
+        </div>
+
+        <!-- Actual Top Scorers -->
+        <div class="text-h6 q-mb-sm">{{ t('admin.actualTopScorers') }}</div>
+        <div class="q-mb-lg">
+          <div v-for="key in topScorerProgressKeys" :key="key" class="row items-center q-mb-sm">
+            <q-input
+              v-model="progressData[key]"
+              dense
+              outlined
+              :placeholder="t('admin.addTopScorer')"
+              style="min-width: 200px"
+              class="col"
+            />
+            <q-btn flat dense icon="close" color="negative" class="q-ml-sm" @click="removeTopScorerFromProgress(key)" />
+          </div>
+          <q-btn flat dense icon="add" :label="t('admin.addTopScorer')" color="primary" @click="addTopScorerToProgress" />
+        </div>
+
+        <!-- Award Top Scorer Predictions -->
+        <div class="text-h6 q-mb-sm">{{ t('admin.awardTopScorer') }}</div>
+        <div class="q-mb-lg">
+          <q-inner-loading :showing="topScorerLoading" />
+          <div v-if="topScorerEntries.length === 0 && !topScorerLoading" class="text-grey-6">
+            No predictions yet
+          </div>
+          <q-list v-else separator bordered class="rounded-borders">
+            <q-item v-for="entry in topScorerEntries" :key="entry.userId">
+              <q-item-section>
+                <q-item-label>{{ entry.username }}</q-item-label>
+                <q-item-label caption>{{ entry.playerName }}</q-item-label>
+              </q-item-section>
+              <q-item-section side>
+                <q-toggle
+                  v-model="entry.isCorrect"
+                  :label="t('admin.markCorrect')"
+                  color="positive"
+                />
+              </q-item-section>
+            </q-item>
+          </q-list>
+          <q-btn
+            v-if="topScorerEntries.length > 0"
+            color="primary"
+            :label="t('common.save')"
+            class="q-mt-sm"
+            @click="saveTopScorerAwards"
+          />
         </div>
 
         <!-- Save / Clear buttons -->

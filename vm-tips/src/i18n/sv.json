@@ -74,7 +74,10 @@
     "criterion4": "Fair play-poäng (spåras ej i denna app)",
     "criterion5": "Lottning (lös manuellt ovan)",
     "knockoutLockedByTiebreaker": "Lös alla tiebreakers för tredjeplatslag ovan innan du kan tippa slutspelet.",
-    "tiebreakerReset": "Återställ val"
+    "tiebreakerReset": "Återställ val",
+    "topScorer": "Skyttekung",
+    "topScorerPlaceholder": "Skriv spelarens namn",
+    "topScorerHint": "Tippa vem som blir turneringens bäste målgörare (20 bonuspoäng)"
   },
   "advancing": {
     "title": "Lag som går vidare",
@@ -83,7 +86,9 @@
     "knockout": "Slutspelsträd",
     "champion": "Mästare",
     "viewAs": "Visa som",
-    "lockedTooltip": "Låses upp efter VM-start (11 juni 2026)"
+    "lockedTooltip": "Låses upp efter VM-start (11 juni 2026)",
+    "topScorer": "Tippat skyttekung",
+    "noTopScorer": "Inget skyttekungstips"
   },
   "results": {
     "title": "Mina resultat",
@@ -106,7 +111,12 @@
     "pointResult": "Resultat",
     "pointHalf": "Halv",
     "pointOutcome": "Utfall",
-    "pointMiss": "Miss"
+    "pointMiss": "Miss",
+    "topScorer": "Skyttekung",
+    "topScorerCorrect": "Rätt!",
+    "topScorerWrong": "Fel",
+    "topScorerPending": "Ej avgjort ännu",
+    "actualTopScorers": "Verklig(a) skyttekung(ar)"
   },
   "leaderboard": {
     "title": "Topplista",
@@ -150,7 +160,12 @@
     "resetPredictionsFor": "Rensa tips för",
     "predictionsReset": "Tips har rensats!",
     "userDeleted": "Användaren har tagits bort!",
-    "created": "Skapad"
+    "created": "Skapad",
+    "actualTopScorers": "Verkliga skyttekungar",
+    "addTopScorer": "Lägg till skyttekung",
+    "awardTopScorer": "Godkänn skyttekungstips",
+    "userPrediction": "Tips",
+    "markCorrect": "Rätt"
   },
   "help": {
     "title": "Poängguide",
@@ -201,6 +216,8 @@
     "bonusSemifinalist": "Rätt semifinalist",
     "bonusFinalist": "Rätt finalist",
     "bonusChampion": "Rätt världsmästare",
+    "bonusTopScorer": "Rätt skyttekung",
+    "topScorerDesc": "Du kan även tippa turneringens skyttekung. Om du tippar rätt spelare (bedöms av admin) får du 20 bonuspoäng.",
     "maxBonusLabel": "Maximal möjlig bonus",
     "example1Title": "Exempel 1: Gruppspel — Exakt resultat",
     "example1Match": "Faktiskt resultat: Sverige 2–1 Norge",

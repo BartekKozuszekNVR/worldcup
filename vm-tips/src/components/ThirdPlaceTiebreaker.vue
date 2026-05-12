@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { TieGroup } from '../types'
+import { teams } from '../data/teams'
 import TeamFlag from './TeamFlag.vue'
+
+const { locale } = useI18n()
 
 const props = defineProps<{
   ties: TieGroup[]
@@ -44,6 +48,12 @@ function setRank(teamCode: string, rank: number | null) {
     newOverrides[teamCode] = rank
   }
   emit('update:overrides', newOverrides)
+}
+
+function teamName(code: string): string {
+  const team = teams.find(t => t.code === code)
+  if (!team) return code
+  return locale.value === 'sv' ? team.name : team.nameEn
 }
 </script>
 
@@ -90,9 +100,9 @@ function setRank(teamCode: string, rank: number | null) {
         }"
       >
         <TeamFlag :code="team.code" size="20px" />
-        <span class="q-ml-sm text-weight-medium col">{{ team.code }}</span>
+        <span class="q-ml-sm text-weight-medium col">{{ teamName(team.code) }}</span>
         <span class="text-caption q-mr-sm">
-          {{ team.points }}pts / {{ team.goalDiff }}GD / {{ team.goalsFor }}GF
+          {{ team.points }}{{ $t('standings.points') }} / {{ team.goalDiff }}{{ $t('standings.goalDiff') }} / {{ team.goalsFor }}{{ $t('standings.goalsFor') }}
         </span>
         <q-select
           :model-value="overrides[team.code] ?? null"

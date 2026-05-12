@@ -47,6 +47,7 @@ const bonusRows = computed(() => [
   { category: t('help.bonusSemifinalist'), perTeam: 10, teams: 4, max: 40 },
   { category: t('help.bonusFinalist'), perTeam: 15, teams: 2, max: 30 },
   { category: t('help.bonusChampion'), perTeam: 25, teams: 1, max: 25 },
+  { category: t('help.bonusTopScorer'), perTeam: 20, teams: 1, max: 20 },
 ])
 
 const maxBonus = computed(() =>
@@ -118,6 +119,7 @@ const maxBonus = computed(() =>
         <div class="text-caption text-weight-bold q-mt-sm">
           {{ t('help.maxBonusLabel') }}: {{ maxBonus }}
         </div>
+        <p class="q-mt-md text-body2">{{ t('help.topScorerDesc') }}</p>
       </q-card-section>
     </q-card>
 

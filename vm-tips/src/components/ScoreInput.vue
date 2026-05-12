@@ -28,7 +28,8 @@ function teamName(code: string): string {
 function parseScore(val: string | number | null): number | null {
   if (val === null || val === '' || val === undefined) return null
   const n = Number(val)
-  return isNaN(n) ? null : Math.max(0, Math.min(20, n))
+  if (isNaN(n)) return null
+  return Math.max(0, Math.min(20, Math.floor(n)))
 }
 </script>
 
@@ -60,6 +61,7 @@ function parseScore(val: string | number | null): number | null {
       style="width: 52px"
       :min="0"
       :max="20"
+      :step="1"
       :disable="disabled"
       @update:model-value="emit('update:homeScore', parseScore($event))"
     />
@@ -75,6 +77,7 @@ function parseScore(val: string | number | null): number | null {
       style="width: 52px"
       :min="0"
       :max="20"
+      :step="1"
       :disable="disabled"
       @update:model-value="emit('update:awayScore', parseScore($event))"
     />

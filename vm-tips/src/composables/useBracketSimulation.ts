@@ -1,5 +1,5 @@
 import { computed } from 'vue'
-import type { SimulatedTeam } from '../types'
+import type { SimulatedTeam, KnockoutPrediction } from '../types'
 import {
   roundOf32Rules,
   roundOf16Rules,
@@ -19,10 +19,12 @@ export interface BracketMatch {
 
 export function useBracketSimulation(
   groupStandings: () => Record<string, SimulatedTeam[]>,
-  thirdPlaceOverrides?: () => Record<string, number>
+  thirdPlaceOverrides?: () => Record<string, number>,
+  knockoutPredictions?: () => Record<string, KnockoutPrediction>
 ) {
   const bracket = computed<BracketMatch[]>(() => {
     const standings = groupStandings()
+    const predictions = knockoutPredictions?.() ?? {}
     const resolved: Record<string, string | null> = {}
 
     // Resolve group positions: 1A, 2A, etc.
@@ -106,48 +108,58 @@ export function useBracketSimulation(
       awayTeam: resolved[rule.away] ?? null,
     }))
 
-    // For knockout resolution we need predictions - return structure only
+    // Write R32 teams into resolved map and determine winners from predictions
+    for (const match of r32Matches) {
+      resolveMatchWinner(match, predictions, resolved)
+    }
+
     const allMatches: BracketMatch[] = [...r32Matches]
 
     // R16
     for (const rule of roundOf16Rules) {
-      allMatches.push({
+      const match: BracketMatch = {
         id: rule.id,
-        homeTeam: resolveWinner(rule.home, resolved),
-        awayTeam: resolveWinner(rule.away, resolved),
-      })
+        homeTeam: resolved[rule.home] ?? null,
+        awayTeam: resolved[rule.away] ?? null,
+      }
+      resolveMatchWinner(match, predictions, resolved)
+      allMatches.push(match)
     }
 
     // QF
     for (const rule of quarterFinalRules) {
-      allMatches.push({
+      const match: BracketMatch = {
         id: rule.id,
-        homeTeam: resolveWinner(rule.home, resolved),
-        awayTeam: resolveWinner(rule.away, resolved),
-      })
+        homeTeam: resolved[rule.home] ?? null,
+        awayTeam: resolved[rule.away] ?? null,
+      }
+      resolveMatchWinner(match, predictions, resolved)
+      allMatches.push(match)
     }
 
     // SF
     for (const rule of semiFinalRules) {
-      allMatches.push({
+      const match: BracketMatch = {
         id: rule.id,
-        homeTeam: resolveWinner(rule.home, resolved),
-        awayTeam: resolveWinner(rule.away, resolved),
-      })
+        homeTeam: resolved[rule.home] ?? null,
+        awayTeam: resolved[rule.away] ?? null,
+      }
+      resolveMatchWinner(match, predictions, resolved)
+      allMatches.push(match)
     }
 
     // Third place
     allMatches.push({
       id: thirdPlaceRule.id,
-      homeTeam: resolveLoser(thirdPlaceRule.home, resolved),
-      awayTeam: resolveLoser(thirdPlaceRule.away, resolved),
+      homeTeam: resolved[thirdPlaceRule.home] ?? null,
+      awayTeam: resolved[thirdPlaceRule.away] ?? null,
     })
 
     // Final
     allMatches.push({
       id: finalRule.id,
-      homeTeam: resolveWinner(finalRule.home, resolved),
-      awayTeam: resolveWinner(finalRule.away, resolved),
+      homeTeam: resolved[finalRule.home] ?? null,
+      awayTeam: resolved[finalRule.away] ?? null,
     })
 
     return allMatches
@@ -156,17 +168,38 @@ export function useBracketSimulation(
   return { bracket }
 }
 
-function resolveWinner(ref: string, resolved: Record<string, string | null>): string | null {
-  // ref like "W-R32-1" or "L-SF-1"
-  if (ref.startsWith('W-') || ref.startsWith('L-')) {
-    return null // Cannot resolve winners without match results in simulation
-  }
-  return resolved[ref] ?? null
-}
+/**
+ * Given a resolved bracket match and the user's knockout predictions,
+ * determine the winner and loser, then write them into the resolved map
+ * as W-{matchId} and L-{matchId}.
+ */
+function resolveMatchWinner(
+  match: BracketMatch,
+  predictions: Record<string, KnockoutPrediction>,
+  resolved: Record<string, string | null>
+): void {
+  const { id, homeTeam, awayTeam } = match
+  if (!homeTeam || !awayTeam) return
 
-function resolveLoser(ref: string, resolved: Record<string, string | null>): string | null {
-  if (ref.startsWith('L-') || ref.startsWith('W-')) {
-    return null
+  const pred = predictions[id]
+  if (!pred || pred.homeScore === null || pred.awayScore === null) return
+
+  let winner: string
+  let loser: string
+
+  if (pred.homeScore > pred.awayScore) {
+    winner = homeTeam
+    loser = awayTeam
+  } else if (pred.awayScore > pred.homeScore) {
+    winner = awayTeam
+    loser = homeTeam
+  } else {
+    // Draw — need penalty winner
+    if (!pred.penaltyWinner) return
+    winner = pred.penaltyWinner
+    loser = pred.penaltyWinner === homeTeam ? awayTeam : homeTeam
   }
-  return resolved[ref] ?? null
+
+  resolved[`W-${id}`] = winner
+  resolved[`L-${id}`] = loser
 }

@@ -1,8 +1,8 @@
 import { defineEventHandler, createError } from 'h3'
 import { db } from '../utils/db'
-import { matchResults, tournamentProgress, predictions, userScores } from '../database/schema'
+import { matchResults, tournamentProgress, predictions, userScores, topScorerPredictions } from '../database/schema'
 import { and, eq, isNotNull } from 'drizzle-orm'
-import { STAGE_MULTIPLIERS, MATCH_POINTS } from '../utils/scoring'
+import { STAGE_MULTIPLIERS, MATCH_POINTS, BONUS_POINTS } from '../utils/scoring'
 
 type MatchStage = 'group' | 'r32' | 'r16' | 'qf' | 'sf' | 'third' | 'final'
 
@@ -135,6 +135,21 @@ export default defineEventHandler(async (event) => {
   const bonusPoints = cachedScore.length > 0 ? cachedScore[0].bonusPoints : 0
   const totalPoints = matchPoints + bonusPoints
 
+  // Get user's top scorer prediction and status
+  const topScorerPred = await db
+    .select()
+    .from(topScorerPredictions)
+    .where(eq(topScorerPredictions.userId, user.id))
+    .limit(1)
+
+  // Get actual top scorers from progress data
+  const actualTopScorers: string[] = []
+  for (const [key, value] of Object.entries(bonusData)) {
+    if (key.startsWith('topScorer_')) {
+      actualTopScorers.push(value)
+    }
+  }
+
   return {
     results: formattedResults,
     bonusData,
@@ -143,6 +158,12 @@ export default defineEventHandler(async (event) => {
       matchPoints,
       bonusPoints,
       scores,
+    },
+    topScorer: {
+      prediction: topScorerPred.length > 0 ? topScorerPred[0].playerName : null,
+      isCorrect: topScorerPred.length > 0 ? topScorerPred[0].isCorrect === 1 : false,
+      points: topScorerPred.length > 0 && topScorerPred[0].isCorrect === 1 ? BONUS_POINTS.topScorer : 0,
+      actualTopScorers,
     },
   }
 })

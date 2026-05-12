@@ -106,6 +106,20 @@ export const thirdPlaceOverrides = sqliteTable(
 )
 
 // ─────────────────────────────────────────────────────────────────
+// TOP SCORER PREDICTIONS TABLE (one per user)
+// ─────────────────────────────────────────────────────────────────
+export const topScorerPredictions = sqliteTable('top_scorer_predictions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' })
+    .unique(),
+  playerName: text('player_name').notNull(),
+  isCorrect: integer('is_correct').notNull().default(0), // 0 = false, 1 = true (admin-set)
+  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+})
+
+// ─────────────────────────────────────────────────────────────────
 // TYPE EXPORTS
 // ─────────────────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect
@@ -122,3 +136,5 @@ export type TournamentProgress = typeof tournamentProgress.$inferSelect
 export type NewTournamentProgress = typeof tournamentProgress.$inferInsert
 export type ThirdPlaceOverride = typeof thirdPlaceOverrides.$inferSelect
 export type NewThirdPlaceOverride = typeof thirdPlaceOverrides.$inferInsert
+export type TopScorerPrediction = typeof topScorerPredictions.$inferSelect
+export type NewTopScorerPrediction = typeof topScorerPredictions.$inferInsert

@@ -10,6 +10,13 @@ export interface UserPoints {
   scores: Record<string, { points: number; type: string }>
 }
 
+export interface TopScorerInfo {
+  prediction: string | null
+  isCorrect: boolean
+  points: number
+  actualTopScorers: string[]
+}
+
 export const useScoresStore = defineStore('scores', () => {
   const results = ref<MatchResult[]>([])
   const bonusData = ref<Record<string, string>>({})
@@ -18,6 +25,12 @@ export const useScoresStore = defineStore('scores', () => {
     matchPoints: 0,
     bonusPoints: 0,
     scores: {},
+  })
+  const topScorerInfo = ref<TopScorerInfo>({
+    prediction: null,
+    isCorrect: false,
+    points: 0,
+    actualTopScorers: [],
   })
   const loading = ref(false)
 
@@ -28,11 +41,15 @@ export const useScoresStore = defineStore('scores', () => {
         results: MatchResult[]
         bonusData?: Record<string, string>
         userPoints?: UserPoints
+        topScorer?: TopScorerInfo
       }>('/api/results')
       results.value = data.results ?? []
       bonusData.value = data.bonusData ?? {}
       if (data.userPoints) {
         userPoints.value = data.userPoints
+      }
+      if (data.topScorer) {
+        topScorerInfo.value = data.topScorer
       }
     } finally {
       loading.value = false
@@ -92,6 +109,7 @@ export const useScoresStore = defineStore('scores', () => {
     results,
     bonusData,
     userPoints,
+    topScorerInfo,
     loading,
     loadResults,
     loadAdminResults,

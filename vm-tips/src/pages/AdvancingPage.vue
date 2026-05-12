@@ -210,5 +210,18 @@ onMounted(async () => {
         <div class="text-h4">{{ getTeamName(champion) }}</div>
       </q-card-section>
     </q-card>
+
+    <!-- Top Scorer Prediction -->
+    <q-card class="q-mb-md">
+      <q-card-section>
+        <div class="row items-center">
+          <q-icon name="sports_soccer" size="sm" class="q-mr-sm" />
+          <div class="text-h6">{{ t('advancing.topScorer') }}</div>
+        </div>
+        <div class="text-body1 q-mt-sm">
+          {{ predictionsStore.topScorer || t('advancing.noTopScorer') }}
+        </div>
+      </q-card-section>
+    </q-card>
   </q-page>
 </template>

@@ -22,4 +22,5 @@ export const BONUS_POINTS = {
   semifinalist: 10,
   finalist: 15,
   champion: 25,
+  topScorer: 20,
 } as const

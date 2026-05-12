@@ -1,5 +1,5 @@
 import { db } from './db'
-import { predictions, matchResults, tournamentProgress, userScores, users } from '../database/schema'
+import { predictions, matchResults, tournamentProgress, userScores, users, topScorerPredictions } from '../database/schema'
 import { eq } from 'drizzle-orm'
 import {
   calculateAllGroupStandings,
@@ -36,6 +36,7 @@ export const BONUS_POINTS = {
   semifinalist: 10,
   finalist: 15,
   champion: 25,
+  topScorer: 20,
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -476,7 +477,18 @@ export async function recalculateAllScores(): Promise<void> {
     // Calculate bonus points using the new helper function
     const bonusPoints = calculateUserBonusPoints(userPreds, progressMap, knockoutTeamsMap)
 
-    const totalPoints = matchPoints + bonusPoints
+    // Check top scorer prediction
+    let topScorerBonus = 0
+    const topScorerPred = await db
+      .select()
+      .from(topScorerPredictions)
+      .where(eq(topScorerPredictions.userId, user.id))
+      .limit(1)
+    if (topScorerPred.length > 0 && topScorerPred[0].isCorrect === 1) {
+      topScorerBonus = BONUS_POINTS.topScorer
+    }
+
+    const totalPoints = matchPoints + bonusPoints + topScorerBonus
 
     // Update or insert user score
     const existingScore = await db
@@ -490,7 +502,7 @@ export async function recalculateAllScores(): Promise<void> {
         .update(userScores)
         .set({
           matchPoints,
-          bonusPoints,
+          bonusPoints: bonusPoints + topScorerBonus,
           totalPoints,
           exactScores,
           correctResults,
@@ -504,7 +516,7 @@ export async function recalculateAllScores(): Promise<void> {
       await db.insert(userScores).values({
         userId: user.id,
         matchPoints,
-        bonusPoints,
+        bonusPoints: bonusPoints + topScorerBonus,
         totalPoints,
         exactScores,
         correctResults,
@@ -615,7 +627,19 @@ export async function recalculateUserScore(userId: number): Promise<void> {
 
   // Calculate bonus points using the helper function
   const bonusPoints = calculateUserBonusPoints(userPreds, progressMap, knockoutTeamsMap)
-  const totalPoints = matchPoints + bonusPoints
+
+  // Check top scorer prediction
+  let topScorerBonus = 0
+  const topScorerPred = await db
+    .select()
+    .from(topScorerPredictions)
+    .where(eq(topScorerPredictions.userId, userId))
+    .limit(1)
+  if (topScorerPred.length > 0 && topScorerPred[0].isCorrect === 1) {
+    topScorerBonus = BONUS_POINTS.topScorer
+  }
+
+  const totalPoints = matchPoints + bonusPoints + topScorerBonus
 
   const existingScore = await db
     .select()
@@ -628,7 +652,7 @@ export async function recalculateUserScore(userId: number): Promise<void> {
       .update(userScores)
       .set({
         matchPoints,
-        bonusPoints,
+        bonusPoints: bonusPoints + topScorerBonus,
         totalPoints,
         exactScores,
         correctResults,
@@ -642,7 +666,7 @@ export async function recalculateUserScore(userId: number): Promise<void> {
     await db.insert(userScores).values({
       userId,
       matchPoints,
-      bonusPoints,
+      bonusPoints: bonusPoints + topScorerBonus,
       totalPoints,
       exactScores,
       correctResults,

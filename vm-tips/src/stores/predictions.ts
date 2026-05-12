@@ -6,6 +6,7 @@ import { apiFetch } from '../composables/useApi'
 export const usePredictionsStore = defineStore('predictions', () => {
   const predictions = ref<Record<string, { homeScore: number | null; awayScore: number | null }>>({})
   const knockoutPredictions = ref<Record<string, KnockoutPrediction>>({})
+  const topScorer = ref<string | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -16,9 +17,11 @@ export const usePredictionsStore = defineStore('predictions', () => {
       const data = await apiFetch<{
         predictions: Record<string, { homeScore: number | null; awayScore: number | null }>
         knockoutPredictions: Record<string, KnockoutPrediction>
+        topScorer?: string | null
       }>('/api/predictions')
       predictions.value = data.predictions ?? {}
       knockoutPredictions.value = data.knockoutPredictions ?? {}
+      topScorer.value = data.topScorer ?? null
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -35,6 +38,7 @@ export const usePredictionsStore = defineStore('predictions', () => {
         body: {
           predictions: predictions.value,
           knockoutPredictions: knockoutPredictions.value,
+          topScorer: topScorer.value,
         },
       })
     } catch (e: any) {
@@ -48,11 +52,13 @@ export const usePredictionsStore = defineStore('predictions', () => {
   function clearPredictions() {
     predictions.value = {}
     knockoutPredictions.value = {}
+    topScorer.value = null
   }
 
   return {
     predictions,
     knockoutPredictions,
+    topScorer,
     loading,
     error,
     loadPredictions,

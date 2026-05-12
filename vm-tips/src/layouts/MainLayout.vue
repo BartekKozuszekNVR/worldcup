@@ -108,7 +108,6 @@ async function handleLogout() {
 
 <style scoped lang="scss">
 .bottom-nav {
-  position: relative;
 
   &::before,
   &::after {

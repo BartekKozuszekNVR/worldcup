@@ -74,7 +74,10 @@
     "criterion4": "Fair play points (not tracked in this app)",
     "criterion5": "Drawing of lots (resolve manually above)",
     "knockoutLockedByTiebreaker": "Resolve all third-place tiebreakers above before entering knockout predictions.",
-    "tiebreakerReset": "Reset selections"
+    "tiebreakerReset": "Reset selections",
+    "topScorer": "Top Goal Scorer",
+    "topScorerPlaceholder": "Enter player name",
+    "topScorerHint": "Predict who will be the tournament's top goal scorer (20 bonus points)"
   },
   "advancing": {
     "title": "Advancing teams",
@@ -83,7 +86,9 @@
     "knockout": "Knockout bracket",
     "champion": "Champion",
     "viewAs": "View as",
-    "lockedTooltip": "Unlocked after tournament starts (11 June 2026)"
+    "lockedTooltip": "Unlocked after tournament starts (11 June 2026)",
+    "topScorer": "Predicted Top Scorer",
+    "noTopScorer": "No top scorer prediction"
   },
   "results": {
     "title": "My results",
@@ -106,7 +111,12 @@
     "pointResult": "Result",
     "pointHalf": "Half",
     "pointOutcome": "Outcome",
-    "pointMiss": "Miss"
+    "pointMiss": "Miss",
+    "topScorer": "Top Scorer",
+    "topScorerCorrect": "Correct!",
+    "topScorerWrong": "Wrong",
+    "topScorerPending": "Not decided yet",
+    "actualTopScorers": "Actual top scorer(s)"
   },
   "leaderboard": {
     "title": "Leaderboard",
@@ -150,7 +160,12 @@
     "resetPredictionsFor": "Clear predictions for",
     "predictionsReset": "Predictions have been cleared!",
     "userDeleted": "User has been deleted!",
-    "created": "Created"
+    "created": "Created",
+    "actualTopScorers": "Actual top scorers",
+    "addTopScorer": "Add top scorer",
+    "awardTopScorer": "Award top scorer predictions",
+    "userPrediction": "Prediction",
+    "markCorrect": "Correct"
   },
   "help": {
     "title": "Scoring guide",
@@ -201,6 +216,8 @@
     "bonusSemifinalist": "Correct semifinalist",
     "bonusFinalist": "Correct finalist",
     "bonusChampion": "Correct World Champion",
+    "bonusTopScorer": "Correct top scorer",
+    "topScorerDesc": "You can also predict the tournament's top goal scorer. If you predict the correct player (judged by admin) you earn 20 bonus points.",
     "maxBonusLabel": "Maximum possible bonus",
     "example1Title": "Example 1: Group Stage — Exact Score",
     "example1Match": "Actual result: Sweden 2–1 Norway",

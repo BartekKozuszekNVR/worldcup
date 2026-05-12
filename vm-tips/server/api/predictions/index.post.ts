@@ -1,6 +1,6 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { db } from '../../utils/db'
-import { predictions, userScores, thirdPlaceOverrides } from '../../database/schema'
+import { predictions, userScores, thirdPlaceOverrides, topScorerPredictions } from '../../database/schema'
 import { eq, and, sql } from 'drizzle-orm'
 import { isTournamentLocked } from '../../../shared/constants'
 
@@ -14,6 +14,7 @@ interface SavePredictionsBody {
   predictions?: Record<string, PredictionData>
   knockoutPredictions?: Record<string, PredictionData>
   thirdPlaceOverrides?: Record<string, number>
+  topScorer?: string | null
 }
 
 export default defineEventHandler(async (event) => {
@@ -133,6 +134,36 @@ export default defineEventHandler(async (event) => {
           updatedAt: now,
         })
       }
+    }
+  }
+
+  // Process top scorer prediction
+  if (body.topScorer !== undefined) {
+    if (body.topScorer && body.topScorer.trim().length > 0) {
+      const playerName = body.topScorer.trim()
+      const existingTopScorer = await db
+        .select()
+        .from(topScorerPredictions)
+        .where(eq(topScorerPredictions.userId, user.id))
+        .limit(1)
+
+      if (existingTopScorer.length > 0) {
+        await db
+          .update(topScorerPredictions)
+          .set({ playerName, updatedAt: now })
+          .where(eq(topScorerPredictions.userId, user.id))
+      } else {
+        await db.insert(topScorerPredictions).values({
+          userId: user.id,
+          playerName,
+          updatedAt: now,
+        })
+      }
+    } else {
+      // Clear top scorer prediction if empty string or null
+      await db
+        .delete(topScorerPredictions)
+        .where(eq(topScorerPredictions.userId, user.id))
     }
   }
 

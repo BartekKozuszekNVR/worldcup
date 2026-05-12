@@ -1,6 +1,6 @@
 import { defineEventHandler, createError } from 'h3'
 import { db } from '../../utils/db'
-import { predictions, thirdPlaceOverrides } from '../../database/schema'
+import { predictions, thirdPlaceOverrides, topScorerPredictions } from '../../database/schema'
 import { eq } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
@@ -53,9 +53,17 @@ export default defineEventHandler(async (event) => {
     thirdPlaceOverridesMap[override.teamCode] = override.rank
   }
 
+  // Get top scorer prediction
+  const topScorerResult = await db
+    .select()
+    .from(topScorerPredictions)
+    .where(eq(topScorerPredictions.userId, user.id))
+    .limit(1)
+
   return {
     predictions: groupPredictions,
     knockoutPredictions,
     thirdPlaceOverrides: thirdPlaceOverridesMap,
+    topScorer: topScorerResult.length > 0 ? topScorerResult[0].playerName : null,
   }
 })

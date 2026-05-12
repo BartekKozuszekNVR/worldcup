@@ -31,7 +31,8 @@ function teamName(code: string | null): string {
 function parseScore(val: string | number | null): number | null {
   if (val === null || val === '' || val === undefined) return null
   const n = Number(val)
-  return isNaN(n) ? null : Math.max(0, Math.min(20, n))
+  if (isNaN(n)) return null
+  return Math.max(0, Math.min(20, Math.floor(n)))
 }
 
 const isDraw = () =>
@@ -45,7 +46,7 @@ const isDraw = () =>
         <!-- Home team -->
         <div class="row items-center no-wrap col">
           <TeamFlag :code="homeTeam ?? 'UN'" size="22px" />
-          <span class="q-ml-xs text-weight-medium text-caption">
+          <span class="team-name q-ml-xs text-weight-medium text-caption">
             {{ teamName(homeTeam) }}
           </span>
         </div>
@@ -60,6 +61,7 @@ const isDraw = () =>
           style="width: 50px"
           :min="0"
           :max="20"
+          :step="1"
           :disable="disabled || !homeTeam || !awayTeam"
           @update:model-value="emit('update:homeScore', parseScore($event))"
         />
@@ -75,13 +77,14 @@ const isDraw = () =>
           style="width: 50px"
           :min="0"
           :max="20"
+          :step="1"
           :disable="disabled || !homeTeam || !awayTeam"
           @update:model-value="emit('update:awayScore', parseScore($event))"
         />
 
         <!-- Away team -->
         <div class="row items-center no-wrap col justify-end">
-          <span class="q-mr-xs text-weight-medium text-caption">
+          <span class="team-name q-mr-xs text-weight-medium text-caption">
             {{ teamName(awayTeam) }}
           </span>
           <TeamFlag :code="awayTeam ?? 'UN'" size="22px" />
@@ -117,5 +120,12 @@ const isDraw = () =>
 .knockout-match :deep(.q-field__native)::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+.team-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: block;
 }
 </style>

@@ -48,7 +48,8 @@ const knockoutResult = useKnockoutAdvancers(
 
 const { bracket } = useBracketSimulation(
   () => groupStandingsMap.value,
-  () => tiebreakerOverrides.value
+  () => tiebreakerOverrides.value,
+  () => store.knockoutPredictions
 )
 
 // Check whether all third-place tiebreakers have been resolved
@@ -138,6 +139,28 @@ async function save() {
           {{ t('predictions.knockoutLockedByTiebreaker') }}
         </q-banner>
       </template>
+      </q-card>
+
+      <!-- Top Goal Scorer prediction -->
+      <q-card flat bordered class="q-mt-md" style="margin-bottom: 80px;">
+        <q-card-section>
+          <div class="text-h6">
+            <q-icon name="sports_soccer" class="q-mr-sm" />
+            {{ t('predictions.topScorer') }}
+          </div>
+          <p class="text-caption text-grey-7 q-mb-md">{{ t('predictions.topScorerHint') }}</p>
+          <q-input
+            v-model="store.topScorer"
+            outlined
+            dense
+            :placeholder="t('predictions.topScorerPlaceholder')"
+            clearable
+          >
+            <template #prepend>
+              <q-icon name="person" />
+            </template>
+          </q-input>
+        </q-card-section>
       </q-card>
     </template>
 

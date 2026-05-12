@@ -128,6 +128,37 @@ onMounted(async () => {
       </q-card-section>
     </q-card>
 
+    <!-- Top Scorer prediction result -->
+    <q-card class="q-mb-md" v-if="scoresStore.topScorerInfo.prediction">
+      <q-card-section>
+        <div class="row items-center">
+          <q-icon name="sports_soccer" size="sm" class="q-mr-sm" />
+          <div class="text-h6">{{ t('results.topScorer') }}</div>
+        </div>
+      </q-card-section>
+      <q-card-section class="q-pt-none">
+        <div class="row items-center q-mb-sm">
+          <span class="text-body1 q-mr-sm">{{ t('results.predicted') }}: <strong>{{ scoresStore.topScorerInfo.prediction }}</strong></span>
+          <q-chip
+            v-if="scoresStore.topScorerInfo.actualTopScorers.length > 0"
+            :color="scoresStore.topScorerInfo.isCorrect ? 'positive' : 'negative'"
+            text-color="white"
+            dense
+            size="sm"
+          >
+            {{ scoresStore.topScorerInfo.isCorrect ? t('results.topScorerCorrect') : t('results.topScorerWrong') }}
+            ({{ scoresStore.topScorerInfo.points }}p)
+          </q-chip>
+          <q-chip v-else color="grey" text-color="white" dense size="sm">
+            {{ t('results.topScorerPending') }}
+          </q-chip>
+        </div>
+        <div v-if="scoresStore.topScorerInfo.actualTopScorers.length > 0" class="text-caption text-grey-7">
+          {{ t('results.actualTopScorers') }}: {{ scoresStore.topScorerInfo.actualTopScorers.join(', ') }}
+        </div>
+      </q-card-section>
+    </q-card>
+
     <!-- Match results -->
     <div class="text-h6 q-mb-sm">{{ t('results.matchResults') }}</div>
 
