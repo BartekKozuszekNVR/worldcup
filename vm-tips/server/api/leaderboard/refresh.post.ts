@@ -25,7 +25,7 @@ export default defineEventHandler(async () => {
     })
     .from(users)
     .leftJoin(userScores, eq(users.id, userScores.userId))
-    .orderBy(desc(userScores.totalPoints))
+    .orderBy(desc(userScores.totalPoints), desc(userScores.exactScores))
 
   // Add rank to each user
   return result.map((user, index) => ({

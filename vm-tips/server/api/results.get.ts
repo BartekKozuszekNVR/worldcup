@@ -103,9 +103,19 @@ export default defineEventHandler(async (event) => {
     predictionsMap.set(pred.matchId, { homeScore: pred.homeScore, awayScore: pred.awayScore })
   }
 
-  // Calculate per-match scores for the logged-in user
+  // Get cached user scores from authoritative source
+  const cachedScore = await db
+    .select()
+    .from(userScores)
+    .where(eq(userScores.userId, user.id))
+    .limit(1)
+
+  const matchPoints = cachedScore.length > 0 ? cachedScore[0].matchPoints : 0
+  const bonusPoints = cachedScore.length > 0 ? cachedScore[0].bonusPoints : 0
+  const totalPoints = cachedScore.length > 0 ? cachedScore[0].totalPoints : 0
+
+  // Calculate per-match scores for display (visual guide only)
   const scores: Record<string, { points: number; type: string }> = {}
-  let matchPoints = 0
 
   for (const result of formattedResults) {
     const pred = predictionsMap.get(result.matchId)
@@ -117,23 +127,11 @@ export default defineEventHandler(async (event) => {
         result.awayScore
       )
       const multiplier = STAGE_MULTIPLIERS[result.stage] || 1
-      const totalMatchPoints = points * multiplier
-      scores[result.matchId] = { points: totalMatchPoints, type }
-      matchPoints += totalMatchPoints
+      scores[result.matchId] = { points: points * multiplier, type }
     } else {
       scores[result.matchId] = { points: 0, type: 'miss' }
     }
   }
-
-  // Get cached user scores for bonus/total
-  const cachedScore = await db
-    .select()
-    .from(userScores)
-    .where(eq(userScores.userId, user.id))
-    .limit(1)
-
-  const bonusPoints = cachedScore.length > 0 ? cachedScore[0].bonusPoints : 0
-  const totalPoints = matchPoints + bonusPoints
 
   // Get user's top scorer prediction and status
   const topScorerPred = await db
