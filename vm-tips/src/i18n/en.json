@@ -31,6 +31,7 @@
     "registerButton": "Register",
     "noAccount": "Don't have an account?",
     "hasAccount": "Already have an account?",
+    "or": "or",
     "forgotPassword": "Forgot password? Contact admin.",
     "loginError": "Login failed",
     "registerError": "Registration failed"

@@ -30,7 +30,7 @@ async function onSubmit() {
 <template>
   <q-card-section>
     <div class="text-h6 q-mb-md">{{ t('auth.login') }}</div>
-    <q-form @submit.prevent="onSubmit" class="column q-gutter-sm">
+    <q-form @submit.prevent="onSubmit" class="column">
       <q-input
         v-model="username"
         :label="t('auth.username')"
@@ -57,11 +57,21 @@ async function onSubmit() {
         class="full-width q-mt-md"
       />
     </q-form>
-    <div class="q-mt-md text-center">
-      <div class="text-caption text-grey q-mb-xs">{{ t('auth.forgotPassword') }}</div>
-      <router-link to="/register" class="text-primary">
-        {{ t('auth.noAccount') }}
-      </router-link>
+    <div class="row items-center q-my-md">
+      <q-separator class="col" />
+      <div class="text-caption text-grey q-mx-sm">{{ t('auth.or') }}</div>
+      <q-separator class="col" />
+    </div>
+    <div>
+      <q-btn
+        :label="t('auth.registerButton')"
+        color="primary"
+        class="full-width"
+        to="/register"
+      />
+      <div class="text-center">
+        <div class="text-caption text-grey q-mt-sm">{{ t('auth.forgotPassword') }}</div>
+      </div>
     </div>
   </q-card-section>
 </template>
