@@ -18,6 +18,6 @@
       "src/*": ["src/*"]
     }
   },
-  "include": ["src", "vite.config.ts"],
+  "include": ["src", "shared", "vite.config.ts"],
   "exclude": ["node_modules", "dist", "src/boot", "src/stores", "src/composables", "src/css", "src/assets", "src/App.vue"]
 }

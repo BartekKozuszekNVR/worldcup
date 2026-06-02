@@ -219,6 +219,8 @@
     "bonusSemifinalist": "Rätt semifinalist",
     "bonusFinalist": "Rätt finalist",
     "bonusChampion": "Rätt världsmästare",
+    "bonusBronzeParticipant": "Rätt bronsdeltagare",
+    "bonusBronzeWinner": "Rätt bronsvinnare",
     "bonusTopScorer": "Rätt skyttekung",
     "topScorerDesc": "Du kan även tippa turneringens skyttekung. Om du tippar rätt spelare (bedöms av admin) får du 20 bonuspoäng.",
     "maxBonusLabel": "Maximal möjlig bonus",

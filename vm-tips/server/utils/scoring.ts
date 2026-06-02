@@ -1,5 +1,5 @@
 import { db } from './db'
-import { predictions, matchResults, tournamentProgress, userScores, users, topScorerPredictions } from '../database/schema'
+import { predictions, matchResults, tournamentProgress, userScores, users, topScorerPredictions, thirdPlaceOverrides as thirdPlaceOverridesTable } from '../database/schema'
 import { eq, and, isNotNull, inArray } from 'drizzle-orm'
 import {
   calculateAllGroupStandings,
@@ -8,6 +8,7 @@ import {
   type GroupMatchPrediction,
   type SimulatedTeam
 } from './groupSimulation'
+import { simulateUserBracket, type BracketMatch, type KnockoutPrediction } from './bracketSimulation'
 
 // ─────────────────────────────────────────────────────────────────
 // SCORING CONSTANTS (mirrored from src/services/scoring.ts)
@@ -37,6 +38,8 @@ export const BONUS_POINTS = {
   finalist: 15,
   champion: 25,
   topScorer: 20,
+  bronzeParticipant: 3,
+  bronzeWinner: 8,
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -109,12 +112,6 @@ export function calculateBasePoints(
 // BONUS CALCULATION HELPERS
 // ─────────────────────────────────────────────────────────────────
 
-interface KnockoutPrediction {
-  homeScore: number | null
-  awayScore: number | null
-  penaltyWinner: string | null
-}
-
 interface PredictionsMap {
   group: Record<string, GroupMatchPrediction>
   knockout: Record<string, KnockoutPrediction>
@@ -123,7 +120,10 @@ interface PredictionsMap {
 /**
  * Rank third-place teams across all groups
  */
-function rankThirdPlaceTeams(standings: Record<string, SimulatedTeam[]>): SimulatedTeam[] {
+function rankThirdPlaceTeams(
+  standings: Record<string, SimulatedTeam[]>,
+  thirdPlaceOverrides: Record<string, number> = {}
+): SimulatedTeam[] {
   const thirdPlaceTeams: SimulatedTeam[] = []
 
   for (const group of GROUPS) {
@@ -133,11 +133,18 @@ function rankThirdPlaceTeams(standings: Record<string, SimulatedTeam[]>): Simula
     }
   }
 
-  // Sort by: points > goal diff > goals for > alphabetical
+  // Sort by: points > goal diff > goals for > overrides > alphabetical
   return thirdPlaceTeams.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points
     if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff
     if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor
+
+    const oa = thirdPlaceOverrides[a.code]
+    const ob = thirdPlaceOverrides[b.code]
+    if (oa !== undefined && ob !== undefined) return oa - ob
+    if (oa !== undefined) return -1
+    if (ob !== undefined) return 1
+
     return a.code.localeCompare(b.code)
   })
 }
@@ -145,39 +152,16 @@ function rankThirdPlaceTeams(standings: Record<string, SimulatedTeam[]>): Simula
 /**
  * Get predicted third place teams (best 8 third-place teams)
  */
-function getPredictedThirdPlaceTeams(standings: Record<string, SimulatedTeam[]>): string[] {
-  const thirdPlaceRanked = rankThirdPlaceTeams(standings)
+function getPredictedThirdPlaceTeams(
+  standings: Record<string, SimulatedTeam[]>,
+  thirdPlaceOverrides: Record<string, number> = {}
+): string[] {
+  const thirdPlaceRanked = rankThirdPlaceTeams(standings, thirdPlaceOverrides)
   const teams: string[] = []
   for (let i = 0; i < 8 && i < thirdPlaceRanked.length; i++) {
     if (thirdPlaceRanked[i]?.code) teams.push(thirdPlaceRanked[i].code)
   }
   return teams
-}
-
-/**
- * Get predicted advancing teams (group winners, runners, best 8 third place)
- */
-function getPredictedAdvancingTeams(standings: Record<string, SimulatedTeam[]>): string[] {
-  const advancing: string[] = []
-
-  // Add group winners and runners (top 2 from each group)
-  for (const group of GROUPS) {
-    const groupStandings = standings[group]
-    if (groupStandings) {
-      if (groupStandings[0]?.code) advancing.push(groupStandings[0].code)
-      if (groupStandings[1]?.code) advancing.push(groupStandings[1].code)
-    }
-  }
-
-  // Add best 8 third-place teams
-  const thirdPlaceRanked = rankThirdPlaceTeams(standings)
-  for (let i = 0; i < 8 && i < thirdPlaceRanked.length; i++) {
-    if (thirdPlaceRanked[i]?.code) {
-      advancing.push(thirdPlaceRanked[i].code)
-    }
-  }
-
-  return advancing
 }
 
 /**
@@ -213,16 +197,16 @@ function resolveKnockoutWinner(
  */
 function getPredictedSemifinalists(
   knockoutPredictions: Record<string, KnockoutPrediction>,
-  knockoutTeams: Record<string, { home: string | null; away: string | null }>
+  bracket: Record<string, BracketMatch>
 ): string[] {
   const semifinalists: string[] = []
   const qfMatches = ['QF-1', 'QF-2', 'QF-3', 'QF-4']
 
   for (const matchId of qfMatches) {
     const prediction = knockoutPredictions[matchId]
-    const teams = knockoutTeams[matchId]
-    if (prediction && teams) {
-      const winner = resolveKnockoutWinner(prediction, teams.home, teams.away)
+    const match = bracket[matchId]
+    if (prediction && match) {
+      const winner = resolveKnockoutWinner(prediction, match.homeTeam, match.awayTeam)
       if (winner) semifinalists.push(winner)
     }
   }
@@ -236,16 +220,16 @@ function getPredictedSemifinalists(
  */
 function getPredictedFinalists(
   knockoutPredictions: Record<string, KnockoutPrediction>,
-  knockoutTeams: Record<string, { home: string | null; away: string | null }>
+  bracket: Record<string, BracketMatch>
 ): string[] {
   const finalists: string[] = []
   const sfMatches = ['SF-1', 'SF-2']
 
   for (const matchId of sfMatches) {
     const prediction = knockoutPredictions[matchId]
-    const teams = knockoutTeams[matchId]
-    if (prediction && teams) {
-      const winner = resolveKnockoutWinner(prediction, teams.home, teams.away)
+    const match = bracket[matchId]
+    if (prediction && match) {
+      const winner = resolveKnockoutWinner(prediction, match.homeTeam, match.awayTeam)
       if (winner) finalists.push(winner)
     }
   }
@@ -258,12 +242,12 @@ function getPredictedFinalists(
  */
 function getPredictedChampion(
   knockoutPredictions: Record<string, KnockoutPrediction>,
-  knockoutTeams: Record<string, { home: string | null; away: string | null }>
+  bracket: Record<string, BracketMatch>
 ): string | null {
   const prediction = knockoutPredictions['FINAL']
-  const teams = knockoutTeams['FINAL']
-  if (prediction && teams) {
-    return resolveKnockoutWinner(prediction, teams.home, teams.away)
+  const match = bracket['FINAL']
+  if (prediction && match) {
+    return resolveKnockoutWinner(prediction, match.homeTeam, match.awayTeam)
   }
   return null
 }
@@ -308,7 +292,9 @@ function buildKnockoutTeamsMap(
 function calculateUserBonusPoints(
   userPreds: PredictionsMap,
   progressMap: Map<string, string>,
-  knockoutTeamsMap: Record<string, { home: string | null; away: string | null }>
+  knockoutTeamsMap: Record<string, { home: string | null; away: string | null }>,
+  thirdPlaceOverrides: Record<string, number> = {},
+  actualBronzeWinner: string | null = null
 ): number {
   let bonus = 0
 
@@ -331,8 +317,8 @@ function calculateUserBonusPoints(
     }
   }
 
-  // 3. Calculate advancing teams bonus (third-place teams only)
-  const predictedThirdPlace = getPredictedThirdPlaceTeams(predictedStandings)
+  // 3. Calculate advancing teams bonus (third-place teams only, with overrides)
+  const predictedThirdPlace = getPredictedThirdPlaceTeams(predictedStandings, thirdPlaceOverrides)
   const actualThirdPlace: string[] = []
   for (let i = 1; i <= 8; i++) {
     const thirdPlace = progressMap.get(`bestThird_${i}`)
@@ -342,8 +328,11 @@ function calculateUserBonusPoints(
   const thirdPlaceMatches = countMatches(predictedThirdPlace, actualThirdPlace)
   bonus += thirdPlaceMatches * BONUS_POINTS.advancing
 
-  // 4. Calculate semifinalists bonus
-  const predictedSemifinalists = getPredictedSemifinalists(userPreds.knockout, knockoutTeamsMap)
+  // 4. Simulate full user bracket for knockout bonuses
+  const bracket = simulateUserBracket(predictedStandings, userPreds.knockout, thirdPlaceOverrides)
+
+  // 5. Calculate semifinalists bonus
+  const predictedSemifinalists = getPredictedSemifinalists(userPreds.knockout, bracket)
   const actualSemifinalists: string[] = []
   for (let i = 1; i <= 4; i++) {
     const sf = progressMap.get(`semifinalist_${i}`)
@@ -352,8 +341,8 @@ function calculateUserBonusPoints(
   const semifinalistMatches = countMatches(predictedSemifinalists, actualSemifinalists)
   bonus += semifinalistMatches * BONUS_POINTS.semifinalist
 
-  // 5. Calculate finalists bonus
-  const predictedFinalists = getPredictedFinalists(userPreds.knockout, knockoutTeamsMap)
+  // 6. Calculate finalists bonus
+  const predictedFinalists = getPredictedFinalists(userPreds.knockout, bracket)
   const actualFinalists: string[] = []
   for (let i = 1; i <= 2; i++) {
     const f = progressMap.get(`finalist_${i}`)
@@ -362,11 +351,30 @@ function calculateUserBonusPoints(
   const finalistMatches = countMatches(predictedFinalists, actualFinalists)
   bonus += finalistMatches * BONUS_POINTS.finalist
 
-  // 6. Calculate champion bonus
-  const predictedChampion = getPredictedChampion(userPreds.knockout, knockoutTeamsMap)
+  // 7. Calculate champion bonus
+  const predictedChampion = getPredictedChampion(userPreds.knockout, bracket)
   const actualChampion = progressMap.get('champion')
   if (predictedChampion && actualChampion && predictedChampion === actualChampion) {
     bonus += BONUS_POINTS.champion
+  }
+
+  // 8. Bronze participant + winner bonuses
+  const bronzeMatch = bracket['THIRD']
+  if (bronzeMatch?.homeTeam && bronzeMatch?.awayTeam) {
+    const actualBronze = knockoutTeamsMap['THIRD']
+    if (actualBronze) {
+      if (bronzeMatch.homeTeam === actualBronze.home) bonus += BONUS_POINTS.bronzeParticipant
+      if (bronzeMatch.awayTeam === actualBronze.away) bonus += BONUS_POINTS.bronzeParticipant
+    }
+    if (actualBronzeWinner) {
+      const bronzePred = userPreds.knockout['THIRD']
+      if (bronzePred) {
+        const predictedBronzeWinner = resolveKnockoutWinner(bronzePred, bronzeMatch.homeTeam, bronzeMatch.awayTeam)
+        if (predictedBronzeWinner === actualBronzeWinner) {
+          bonus += BONUS_POINTS.bronzeWinner
+        }
+      }
+    }
   }
 
   return bonus
@@ -402,6 +410,19 @@ export async function recalculateAllScores(): Promise<void> {
   // 4. Get all users
   const allUsers = await db.select({ id: users.id }).from(users)
 
+  // Get all third-place overrides for tiebreaker resolution
+  const overrideRows = await db.select().from(thirdPlaceOverridesTable)
+
+  // Resolve actual bronze winner from THIRD match result
+  const thirdResult = allResults.find(r => r.matchId === 'THIRD')
+  const thirdTeams = knockoutTeamsMap['THIRD']
+  let actualBronzeWinner: string | null = null
+  if (thirdResult && thirdTeams?.home && thirdTeams?.away && thirdResult.homeScore !== null && thirdResult.awayScore !== null) {
+    if (thirdResult.homeScore > thirdResult.awayScore) actualBronzeWinner = thirdTeams.home
+    else if (thirdResult.awayScore > thirdResult.homeScore) actualBronzeWinner = thirdTeams.away
+    else actualBronzeWinner = thirdResult.penaltyWinner ?? null
+  }
+
   // 5. For each user, calculate their score
   for (const user of allUsers) {
     // Get user's predictions
@@ -431,11 +452,23 @@ export async function recalculateAllScores(): Promise<void> {
       }
     }
 
+    // Build user's third-place overrides map
+    const overrides: Record<string, number> = {}
+    for (const row of overrideRows) {
+      if (row.userId === user.id) {
+        overrides[row.teamCode] = row.rank
+      }
+    }
+
     let matchPoints = 0
     let exactScores = 0
     let correctResults = 0
     let halfScoreCorrect = 0
     let correctOutcomes = 0
+
+    // Simulate user's bracket once for teamsMatch checks
+    const predictedStandings = calculateAllGroupStandings(userPreds.group)
+    const bracket = simulateUserBracket(predictedStandings, userPreds.knockout, overrides)
 
     // Calculate match points
     for (const pred of userPredictions) {
@@ -450,13 +483,8 @@ export async function recalculateAllScores(): Promise<void> {
       if (isKnockout) {
         const actualTeams = knockoutTeamsMap[pred.matchId]
         if (actualTeams?.home && actualTeams?.away) {
-          // Get user's predicted teams for this knockout match by simulating their bracket
-          const predictedStandings = calculateAllGroupStandings(userPreds.group)
-          const predictedAdvancing = getPredictedAdvancingTeams(predictedStandings)
-          const advancingSet = new Set(predictedAdvancing)
-          
-          // Teams match if both actual teams are in user's predicted advancing teams
-          teamsMatch = advancingSet.has(actualTeams.home) && advancingSet.has(actualTeams.away)
+          const bracketMatch = bracket[pred.matchId]
+          teamsMatch = bracketMatch?.homeTeam === actualTeams.home && bracketMatch?.awayTeam === actualTeams.away
         }
       }
 
@@ -479,7 +507,7 @@ export async function recalculateAllScores(): Promise<void> {
     }
 
     // Calculate bonus points using the new helper function
-    const bonusPoints = calculateUserBonusPoints(userPreds, progressMap, knockoutTeamsMap)
+    const bonusPoints = calculateUserBonusPoints(userPreds, progressMap, knockoutTeamsMap, overrides, actualBronzeWinner)
 
     // Check top scorer prediction
     let topScorerBonus = 0
@@ -556,6 +584,26 @@ export async function recalculateUserScore(userId: number): Promise<void> {
     progressMap.set(p.key, p.teamCode)
   }
 
+  // Get user's third-place overrides
+  const overrideRows = await db
+    .select()
+    .from(thirdPlaceOverridesTable)
+    .where(eq(thirdPlaceOverridesTable.userId, userId))
+  const overrides: Record<string, number> = {}
+  for (const row of overrideRows) {
+    overrides[row.teamCode] = row.rank
+  }
+
+  // Resolve actual bronze winner from THIRD match result
+  const thirdResult = allResults.find(r => r.matchId === 'THIRD')
+  const thirdTeams = knockoutTeamsMap['THIRD']
+  let actualBronzeWinner: string | null = null
+  if (thirdResult && thirdTeams?.home && thirdTeams?.away && thirdResult.homeScore !== null && thirdResult.awayScore !== null) {
+    if (thirdResult.homeScore > thirdResult.awayScore) actualBronzeWinner = thirdTeams.home
+    else if (thirdResult.awayScore > thirdResult.homeScore) actualBronzeWinner = thirdTeams.away
+    else actualBronzeWinner = thirdResult.penaltyWinner ?? null
+  }
+
   // Get user's predictions
   const userPredictions = await db
     .select()
@@ -589,6 +637,10 @@ export async function recalculateUserScore(userId: number): Promise<void> {
   let halfScoreCorrect = 0
   let correctOutcomes = 0
 
+  // Simulate user's bracket once for teamsMatch checks
+  const predictedStandings = calculateAllGroupStandings(userPreds.group)
+  const bracket = simulateUserBracket(predictedStandings, userPreds.knockout, overrides)
+
   for (const pred of userPredictions) {
     const result = resultsMap.get(pred.matchId)
     if (!result) continue
@@ -601,13 +653,8 @@ export async function recalculateUserScore(userId: number): Promise<void> {
     if (isKnockout) {
       const actualTeams = knockoutTeamsMap[pred.matchId]
       if (actualTeams?.home && actualTeams?.away) {
-        // Get user's predicted teams for this knockout match by simulating their bracket
-        const predictedStandings = calculateAllGroupStandings(userPreds.group)
-        const predictedAdvancing = getPredictedAdvancingTeams(predictedStandings)
-        const advancingSet = new Set(predictedAdvancing)
-        
-        // Teams match if both actual teams are in user's predicted advancing teams
-        teamsMatch = advancingSet.has(actualTeams.home) && advancingSet.has(actualTeams.away)
+        const bracketMatch = bracket[pred.matchId]
+        teamsMatch = bracketMatch?.homeTeam === actualTeams.home && bracketMatch?.awayTeam === actualTeams.away
       }
     }
 
@@ -630,7 +677,7 @@ export async function recalculateUserScore(userId: number): Promise<void> {
   }
 
   // Calculate bonus points using the helper function
-  const bonusPoints = calculateUserBonusPoints(userPreds, progressMap, knockoutTeamsMap)
+  const bonusPoints = calculateUserBonusPoints(userPreds, progressMap, knockoutTeamsMap, overrides, actualBronzeWinner)
 
   // Check top scorer prediction
   let topScorerBonus = 0

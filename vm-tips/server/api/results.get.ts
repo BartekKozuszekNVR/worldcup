@@ -1,10 +1,10 @@
 import { defineEventHandler, createError } from 'h3'
 import { db } from '../utils/db'
-import { matchResults, tournamentProgress, predictions, userScores, topScorerPredictions } from '../database/schema'
+import { matchResults, tournamentProgress, predictions, userScores, topScorerPredictions, thirdPlaceOverrides as thirdPlaceOverridesTable } from '../database/schema'
 import { and, eq, isNotNull } from 'drizzle-orm'
 import { STAGE_MULTIPLIERS, BONUS_POINTS, calculateBasePoints } from '../utils/scoring'
 import { calculateAllGroupStandings } from '../utils/groupSimulation'
-import { GROUPS } from '../data/groupMatches'
+import { simulateUserBracket } from '../utils/bracketSimulation'
 
 type MatchStage = 'group' | 'r32' | 'r16' | 'qf' | 'sf' | 'third' | 'final'
 
@@ -16,42 +16,6 @@ function getStageFromMatchId(matchId: string): MatchStage {
   if (matchId === 'THIRD') return 'third'
   if (matchId === 'FINAL') return 'final'
   return 'group'
-}
-
-/** Compute the user's predicted advancing teams from their group predictions */
-function getPredictedAdvancingTeams(userPredictions: typeof predictions.$inferSelect[]): Set<string> {
-  const groupPredictions: Record<string, { homeScore: number | null; awayScore: number | null }> = {}
-  for (const pred of userPredictions) {
-    if (pred.matchType === 'group') {
-      groupPredictions[pred.matchId] = { homeScore: pred.homeScore, awayScore: pred.awayScore }
-    }
-  }
-
-  const standings = calculateAllGroupStandings(groupPredictions)
-  const advancing = new Set<string>()
-
-  for (const group of GROUPS) {
-    const table = standings[group]
-    if (table) {
-      if (table[0]?.code) advancing.add(table[0].code)
-      if (table[1]?.code) advancing.add(table[1].code)
-    }
-  }
-
-  // Best 8 third-place teams
-  const thirdPlace: { code: string; points: number; goalDiff: number; goalsFor: number }[] = []
-  for (const group of GROUPS) {
-    const table = standings[group]
-    if (table && table[2]) {
-      thirdPlace.push(table[2])
-    }
-  }
-  thirdPlace.sort((a, b) => b.points - a.points || b.goalDiff - a.goalDiff || b.goalsFor - a.goalsFor || a.code.localeCompare(b.code))
-  for (let i = 0; i < 8 && i < thirdPlace.length; i++) {
-    if (thirdPlace[i]?.code) advancing.add(thirdPlace[i].code)
-  }
-
-  return advancing
 }
 
 export default defineEventHandler(async (event) => {
@@ -115,8 +79,30 @@ export default defineEventHandler(async (event) => {
   const bonusPoints = cachedScore.length > 0 ? cachedScore[0].bonusPoints : 0
   const totalPoints = cachedScore.length > 0 ? cachedScore[0].totalPoints : 0
 
-  // Compute user's predicted advancing teams for teamsMatch check
-  const predictedAdvancing = getPredictedAdvancingTeams(userPredictions)
+  // Get user's third-place overrides and simulate their bracket for teamsMatch checks
+  const overrideRows = await db
+    .select()
+    .from(thirdPlaceOverridesTable)
+    .where(eq(thirdPlaceOverridesTable.userId, user.id))
+  const overrides: Record<string, number> = {}
+  for (const row of overrideRows) {
+    overrides[row.teamCode] = row.rank
+  }
+
+  // Build group and knockout prediction maps for bracket simulation
+  const groupPreds: Record<string, { homeScore: number | null; awayScore: number | null }> = {}
+  const knockoutPreds: Record<string, { homeScore: number | null; awayScore: number | null; penaltyWinner: string | null }> = {}
+  for (const pred of userPredictions) {
+    if (pred.matchType === 'group') {
+      groupPreds[pred.matchId] = { homeScore: pred.homeScore, awayScore: pred.awayScore }
+    } else {
+      knockoutPreds[pred.matchId] = { homeScore: pred.homeScore, awayScore: pred.awayScore, penaltyWinner: pred.penaltyWinner }
+    }
+  }
+
+  // Simulate user's full bracket
+  const standings = calculateAllGroupStandings(groupPreds)
+  const bracket = simulateUserBracket(standings, knockoutPreds, overrides)
 
   // Calculate per-match scores for display using canonical scoring logic
   const scores: Record<string, { points: number; type: string }> = {}
@@ -125,7 +111,8 @@ export default defineEventHandler(async (event) => {
     const pred = predictionsMap.get(result.matchId)
     if (pred) {
       const isKnockout = result.stage !== 'group'
-      const teamsMatch = !isKnockout || (predictedAdvancing.has(result.homeTeam) && predictedAdvancing.has(result.awayTeam))
+      const bracketMatch = bracket[result.matchId]
+      const teamsMatch = !isKnockout || (bracketMatch?.homeTeam === result.homeTeam && bracketMatch?.awayTeam === result.awayTeam)
       const { points, type } = calculateBasePoints(
         pred.homeScore,
         pred.awayScore,

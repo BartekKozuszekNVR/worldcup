@@ -45,6 +45,8 @@ const bonusRows = computed(() => [
   { category: t('help.bonusGroupRunner'), perTeam: 3, teams: 12, max: 36 },
   { category: t('help.bonusThirdPlace'), perTeam: 2, teams: 8, max: 16 },
   { category: t('help.bonusSemifinalist'), perTeam: 10, teams: 4, max: 40 },
+  { category: t('help.bonusBronzeParticipant'), perTeam: 3, teams: 2, max: 6 },
+  { category: t('help.bonusBronzeWinner'), perTeam: 8, teams: 1, max: 8 },
   { category: t('help.bonusFinalist'), perTeam: 15, teams: 2, max: 30 },
   { category: t('help.bonusChampion'), perTeam: 25, teams: 1, max: 25 },
   { category: t('help.bonusTopScorer'), perTeam: 20, teams: 1, max: 20 },

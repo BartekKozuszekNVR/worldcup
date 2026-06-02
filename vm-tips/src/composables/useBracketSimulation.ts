@@ -7,8 +7,8 @@ import {
   semiFinalRules,
   thirdPlaceRule,
   finalRule,
-} from '../data/bracketRules'
-import { thirdPlaceCombinations } from '../data/thirdPlaceCombinations'
+} from '../../shared/bracketRules'
+import { thirdPlaceCombinations } from '../../shared/thirdPlaceCombinations'
 import { GROUPS } from '../data/groupMatches'
 
 export interface BracketMatch {

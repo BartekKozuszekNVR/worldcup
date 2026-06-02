@@ -219,6 +219,8 @@
     "bonusSemifinalist": "Correct semifinalist",
     "bonusFinalist": "Correct finalist",
     "bonusChampion": "Correct World Champion",
+    "bonusBronzeParticipant": "Correct bronze participant",
+    "bonusBronzeWinner": "Correct bronze winner",
     "bonusTopScorer": "Correct top scorer",
     "topScorerDesc": "You can also predict the tournament's top goal scorer. If you predict the correct player (judged by admin) you earn 20 bonus points.",
     "maxBonusLabel": "Maximum possible bonus",

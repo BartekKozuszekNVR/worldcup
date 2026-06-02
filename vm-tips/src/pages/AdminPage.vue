@@ -12,8 +12,8 @@ import {
   quarterFinalRules,
   semiFinalRules,
   finalRule,
-} from '../data/bracketRules'
-import { thirdPlaceCombinations } from '../data/thirdPlaceCombinations'
+} from '../../shared/bracketRules'
+import { thirdPlaceCombinations } from '../../shared/thirdPlaceCombinations'
 import ScoreInput from '../components/ScoreInput.vue'
 import TeamFlag from '../components/TeamFlag.vue'
 import { apiFetch } from '../composables/useApi'
