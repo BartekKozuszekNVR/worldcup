@@ -31,7 +31,8 @@ export default defineEventHandler(async (event) => {
     bonusPoints: 0,
     totalPoints: 0,
     exactScores: 0,
-    correctDiffs: 0,
+    correctResults: 0,
+    halfScoreCorrect: 0,
     correctOutcomes: 0,
     calculatedAt: new Date().toISOString(),
   })

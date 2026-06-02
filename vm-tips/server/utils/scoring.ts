@@ -143,6 +143,18 @@ function rankThirdPlaceTeams(standings: Record<string, SimulatedTeam[]>): Simula
 }
 
 /**
+ * Get predicted third place teams (best 8 third-place teams)
+ */
+function getPredictedThirdPlaceTeams(standings: Record<string, SimulatedTeam[]>): string[] {
+  const thirdPlaceRanked = rankThirdPlaceTeams(standings)
+  const teams: string[] = []
+  for (let i = 0; i < 8 && i < thirdPlaceRanked.length; i++) {
+    if (thirdPlaceRanked[i]?.code) teams.push(thirdPlaceRanked[i].code)
+  }
+  return teams
+}
+
+/**
  * Get predicted advancing teams (group winners, runners, best 8 third place)
  */
 function getPredictedAdvancingTeams(standings: Record<string, SimulatedTeam[]>): string[] {
@@ -319,24 +331,16 @@ function calculateUserBonusPoints(
     }
   }
 
-  // 3. Calculate advancing teams bonus
-  const predictedAdvancing = getPredictedAdvancingTeams(predictedStandings)
-  const actualAdvancing: string[] = []
-  
-  // Collect actual advancing teams from progress
-  for (const group of GROUPS) {
-    const winner = progressMap.get(`group${group}_winner`)
-    const runner = progressMap.get(`group${group}_runner`)
-    if (winner) actualAdvancing.push(winner)
-    if (runner) actualAdvancing.push(runner)
-  }
+  // 3. Calculate advancing teams bonus (third-place teams only)
+  const predictedThirdPlace = getPredictedThirdPlaceTeams(predictedStandings)
+  const actualThirdPlace: string[] = []
   for (let i = 1; i <= 8; i++) {
     const thirdPlace = progressMap.get(`bestThird_${i}`)
-    if (thirdPlace) actualAdvancing.push(thirdPlace)
+    if (thirdPlace) actualThirdPlace.push(thirdPlace)
   }
 
-  const advancingMatches = countMatches(predictedAdvancing, actualAdvancing)
-  bonus += advancingMatches * BONUS_POINTS.advancing
+  const thirdPlaceMatches = countMatches(predictedThirdPlace, actualThirdPlace)
+  bonus += thirdPlaceMatches * BONUS_POINTS.advancing
 
   // 4. Calculate semifinalists bonus
   const predictedSemifinalists = getPredictedSemifinalists(userPreds.knockout, knockoutTeamsMap)

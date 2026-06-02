@@ -122,6 +122,7 @@ const knockoutMatchIds = [
   ...roundOf16Rules.map(r => r.id),
   ...quarterFinalRules.map(r => r.id),
   ...semiFinalRules.map(r => r.id),
+  'THIRD',
   'FINAL',
 ]
 
@@ -279,6 +280,20 @@ const r32Options = computed(() => {
     return { matchNum: idx + 1, id: rule.id, home, away, options }
   })
 })
+
+function resolveLoserRef(ref: string): string | null {
+  // 'L-SF-1' → loser of SF-1 is whichever QF winner didn't win SF-1
+  const m = ref.match(/^L-(SF)-(\d+)$/)
+  if (!m) return null
+  const [, , numStr] = m
+  const num = parseInt(numStr)
+  const sfWinner = progressData[`sf_${num}_winner`]
+  if (!sfWinner) return null
+  const qf1 = progressData[`qf_${2 * num - 1}_winner`]
+  const qf2 = progressData[`qf_${2 * num}_winner`]
+  if (!qf1 || !qf2) return null
+  return sfWinner === qf1 ? qf2 : qf1
+}
 
 function resolveWinnerRef(ref: string): string | null {
   // 'W-R32-1' → progressData['r32_1_winner']
@@ -529,6 +544,7 @@ function getKnockoutStage(matchId: string): MatchStage {
   if (matchId.startsWith('R16')) return 'r16'
   if (matchId.startsWith('QF')) return 'qf'
   if (matchId.startsWith('SF')) return 'sf'
+  if (matchId === 'THIRD') return 'third'
   if (matchId === 'FINAL') return 'final'
   return 'group'
 }
@@ -554,6 +570,11 @@ function getKnockoutMatchTeams(matchId: string): { home: string | null; away: st
     const idx = parseInt(matchId.replace('SF-', '')) - 1
     const match = sfOptions.value[idx]
     return { home: match?.home ?? null, away: match?.away ?? null }
+  }
+  if (matchId === 'THIRD') {
+    const home = resolveLoserRef('L-SF-1')
+    const away = resolveLoserRef('L-SF-2')
+    return { home, away }
   }
   if (matchId === 'FINAL') {
     return { home: finalOptions.value.home, away: finalOptions.value.away }
@@ -1087,6 +1108,30 @@ onMounted(async () => {
                     </div>
                   </template>
                 </q-select>
+              </div>
+            </div>
+          </q-card-section>
+        </q-card>
+
+        <!-- Third-place match -->
+        <q-card flat bordered class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">{{ t('admin.knockoutProgress') }} - {{ t('predictions.thirdPlaceMatch') }}</div>
+          </q-card-section>
+          <q-card-section class="q-pt-none">
+            <div class="row q-mb-sm q-pa-sm items-center" style="border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;">
+              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 55px">THIRD</div>
+              <div class="col-12 col-sm">
+                <ScoreInput
+                  match-id="THIRD"
+                  :home-team="resolveLoserRef('L-SF-1') ?? 'UN'"
+                  :away-team="resolveLoserRef('L-SF-2') ?? 'UN'"
+                  :home-score="knockoutScores['THIRD'].homeScore"
+                  :away-score="knockoutScores['THIRD'].awayScore"
+                  :disabled="!resolveLoserRef('L-SF-1') || !resolveLoserRef('L-SF-2')"
+                  @update:home-score="knockoutScores['THIRD'].homeScore = $event"
+                  @update:away-score="knockoutScores['THIRD'].awayScore = $event"
+                />
               </div>
             </div>
           </q-card-section>
