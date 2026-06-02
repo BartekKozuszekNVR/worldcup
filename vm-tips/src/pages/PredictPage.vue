@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePredictionsStore } from '../stores/predictions'
+import { useAppStore } from '../stores/app'
 import { useGroupSimulation } from '../composables/useGroupSimulation'
 import { useKnockoutAdvancers } from '../composables/useKnockoutAdvancers'
 import { useBracketSimulation } from '../composables/useBracketSimulation'
@@ -13,6 +14,7 @@ import KnockoutPredictionsPanel from '../components/KnockoutPredictionsPanel.vue
 
 const { t } = useI18n()
 const store = usePredictionsStore()
+const appStore = useAppStore()
 
 const saving = ref(false)
 
@@ -90,6 +92,11 @@ async function save() {
 <template>
   <q-page padding>
     <div class="text-h5 q-mb-md">{{ t('predictions.title') }}</div>
+
+    <q-banner :class="`bg-secondary ${appStore.secondaryIsLight ? 'text-black' : 'text-white'} q-mb-md`" rounded>
+      <template #avatar><q-icon name="lock" /></template>
+      {{ t('predictions.deadlineWarning') }}
+    </q-banner>
 
     <q-inner-loading :showing="store.loading" />
 

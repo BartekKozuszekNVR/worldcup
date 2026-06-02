@@ -54,6 +54,7 @@
   },
   "predictions": {
     "title": "Group stage predictions",
+    "deadlineWarning": "After 11 June 2026, 20:50 CEST this page will be locked and you can't bet anymore",
     "save": "Save predictions",
     "saved": "Predictions saved!",
     "group": "Group",
@@ -86,7 +87,7 @@
     "knockout": "Knockout bracket",
     "champion": "Champion",
     "viewAs": "View as",
-    "lockedTooltip": "Unlocked after tournament starts (11 June 2026)",
+    "lockedTooltip": "Unlocked after tournament starts (11 June 2026, 20:50 CEST)",
     "topScorer": "Predicted Top Scorer",
     "noTopScorer": "No top scorer prediction"
   },

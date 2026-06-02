@@ -54,6 +54,7 @@
   },
   "predictions": {
     "title": "Gruppspelstips",
+    "deadlineWarning": "Efter 11 juni 2026, 20:50 CEST låses denna sida och du kan inte tippa mer",
     "save": "Spara tips",
     "saved": "Tips sparade!",
     "group": "Grupp",
@@ -86,7 +87,7 @@
     "knockout": "Slutspelsträd",
     "champion": "Mästare",
     "viewAs": "Visa som",
-    "lockedTooltip": "Låses upp efter VM-start (11 juni 2026)",
+    "lockedTooltip": "Låses upp efter VM-start (11 juni 2026, 20:50 CEST)",
     "topScorer": "Tippat skyttekung",
     "noTopScorer": "Inget skyttekungstips"
   },
