@@ -1116,7 +1116,7 @@ onMounted(async () => {
         <!-- Third-place match -->
         <q-card flat bordered class="q-mb-md">
           <q-card-section>
-            <div class="text-h6">{{ t('admin.knockoutProgress') }} - {{ t('predictions.thirdPlaceMatch') }}</div>
+            <div class="text-h6">{{ t('admin.knockoutProgress') }} - {{ t('help.thirdPlaceMatch') }}</div>
           </q-card-section>
           <q-card-section class="q-pt-none">
             <div class="row q-mb-sm q-pa-sm items-center" style="border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;">
