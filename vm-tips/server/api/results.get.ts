@@ -2,7 +2,9 @@ import { defineEventHandler, createError } from 'h3'
 import { db } from '../utils/db'
 import { matchResults, tournamentProgress, predictions, userScores, topScorerPredictions } from '../database/schema'
 import { and, eq, isNotNull } from 'drizzle-orm'
-import { STAGE_MULTIPLIERS, MATCH_POINTS, BONUS_POINTS } from '../utils/scoring'
+import { STAGE_MULTIPLIERS, BONUS_POINTS, calculateBasePoints } from '../utils/scoring'
+import { calculateAllGroupStandings } from '../utils/groupSimulation'
+import { GROUPS } from '../data/groupMatches'
 
 type MatchStage = 'group' | 'r32' | 'r16' | 'qf' | 'sf' | 'third' | 'final'
 
@@ -16,42 +18,40 @@ function getStageFromMatchId(matchId: string): MatchStage {
   return 'group'
 }
 
-/**
- * Scoring logic matching the authoritative server/utils/scoring.ts calculateBasePoints.
- * Note: teamsMatch/isKnockout are not available here (no team mapping context),
- * so the "correctResult" tier (knockout, different teams, same scoreline) is N/A.
- * For the per-user results page this is acceptable since group matches always have
- * teamsMatch=true and for knockout matches shown here the teams are the same.
- */
-function calculateBasePoints(
-  predHome: number | null,
-  predAway: number | null,
-  actualHome: number | null,
-  actualAway: number | null,
-): { points: number; type: string } {
-  if (predHome === null || predAway === null || actualHome === null || actualAway === null) {
-    return { points: 0, type: 'miss' }
+/** Compute the user's predicted advancing teams from their group predictions */
+function getPredictedAdvancingTeams(userPredictions: typeof predictions.$inferSelect[]): Set<string> {
+  const groupPredictions: Record<string, { homeScore: number | null; awayScore: number | null }> = {}
+  for (const pred of userPredictions) {
+    if (pred.matchType === 'group') {
+      groupPredictions[pred.matchId] = { homeScore: pred.homeScore, awayScore: pred.awayScore }
+    }
   }
 
-  // 1. Exact score (5 pts)
-  if (predHome === actualHome && predAway === actualAway) {
-    return { points: MATCH_POINTS.exact, type: 'exact' }
+  const standings = calculateAllGroupStandings(groupPredictions)
+  const advancing = new Set<string>()
+
+  for (const group of GROUPS) {
+    const table = standings[group]
+    if (table) {
+      if (table[0]?.code) advancing.add(table[0].code)
+      if (table[1]?.code) advancing.add(table[1].code)
+    }
   }
 
-  // 2. Half Score (1.5 pts) - home OR away score matches
-  if (predHome === actualHome || predAway === actualAway) {
-    return { points: MATCH_POINTS.halfScore, type: 'halfScore' }
+  // Best 8 third-place teams
+  const thirdPlace: { code: string; points: number; goalDiff: number; goalsFor: number }[] = []
+  for (const group of GROUPS) {
+    const table = standings[group]
+    if (table && table[2]) {
+      thirdPlace.push(table[2])
+    }
+  }
+  thirdPlace.sort((a, b) => b.points - a.points || b.goalDiff - a.goalDiff || b.goalsFor - a.goalsFor || a.code.localeCompare(b.code))
+  for (let i = 0; i < 8 && i < thirdPlace.length; i++) {
+    if (thirdPlace[i]?.code) advancing.add(thirdPlace[i].code)
   }
 
-  // 3. Correct Outcome (1 pt) - right winner or draw, no score match
-  const predOutcome = predHome > predAway ? 'home' : predHome < predAway ? 'away' : 'draw'
-  const actualOutcome = actualHome > actualAway ? 'home' : actualHome < actualAway ? 'away' : 'draw'
-
-  if (predOutcome === actualOutcome) {
-    return { points: MATCH_POINTS.outcome, type: 'outcome' }
-  }
-
-  return { points: 0, type: 'miss' }
+  return advancing
 }
 
 export default defineEventHandler(async (event) => {
@@ -83,6 +83,7 @@ export default defineEventHandler(async (event) => {
     homeScore: r.homeScore,
     awayScore: r.awayScore,
     stage: getStageFromMatchId(r.matchId),
+    penaltyWinner: r.penaltyWinner,
   }))
 
   // Get tournament progress for bonus data
@@ -114,17 +115,24 @@ export default defineEventHandler(async (event) => {
   const bonusPoints = cachedScore.length > 0 ? cachedScore[0].bonusPoints : 0
   const totalPoints = cachedScore.length > 0 ? cachedScore[0].totalPoints : 0
 
-  // Calculate per-match scores for display (visual guide only)
+  // Compute user's predicted advancing teams for teamsMatch check
+  const predictedAdvancing = getPredictedAdvancingTeams(userPredictions)
+
+  // Calculate per-match scores for display using canonical scoring logic
   const scores: Record<string, { points: number; type: string }> = {}
 
   for (const result of formattedResults) {
     const pred = predictionsMap.get(result.matchId)
     if (pred) {
+      const isKnockout = result.stage !== 'group'
+      const teamsMatch = !isKnockout || (predictedAdvancing.has(result.homeTeam) && predictedAdvancing.has(result.awayTeam))
       const { points, type } = calculateBasePoints(
         pred.homeScore,
         pred.awayScore,
         result.homeScore,
-        result.awayScore
+        result.awayScore,
+        isKnockout,
+        teamsMatch
       )
       const multiplier = STAGE_MULTIPLIERS[result.stage] || 1
       scores[result.matchId] = { points: points * multiplier, type }
@@ -140,6 +148,10 @@ export default defineEventHandler(async (event) => {
     .where(eq(topScorerPredictions.userId, user.id))
     .limit(1)
 
+  // Top scorer bonus (not included in displayed bonusPoints to avoid double-count)
+  const topScorerPoints = topScorerPred.length > 0 && topScorerPred[0].isCorrect === 1 ? BONUS_POINTS.topScorer : 0
+  const displayBonusPoints = bonusPoints - topScorerPoints
+
   // Get actual top scorers from progress data
   const actualTopScorers: string[] = []
   for (const [key, value] of Object.entries(bonusData)) {
@@ -154,13 +166,13 @@ export default defineEventHandler(async (event) => {
     userPoints: {
       totalPoints,
       matchPoints,
-      bonusPoints,
+      bonusPoints: displayBonusPoints,
       scores,
     },
     topScorer: {
       prediction: topScorerPred.length > 0 ? topScorerPred[0].playerName : null,
       isCorrect: topScorerPred.length > 0 ? topScorerPred[0].isCorrect === 1 : false,
-      points: topScorerPred.length > 0 && topScorerPred[0].isCorrect === 1 ? BONUS_POINTS.topScorer : 0,
+      points: topScorerPoints,
       actualTopScorers,
     },
   }

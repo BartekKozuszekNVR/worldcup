@@ -118,7 +118,8 @@
     "topScorerCorrect": "Rätt!",
     "topScorerWrong": "Fel",
     "topScorerPending": "Ej avgjort ännu",
-    "actualTopScorers": "Verklig(a) skyttekung(ar)"
+    "actualTopScorers": "Verklig(a) skyttekung(ar)",
+    "penaltyAdvanced": "vidare"
   },
   "leaderboard": {
     "title": "Topplista",

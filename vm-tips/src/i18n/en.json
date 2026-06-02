@@ -118,7 +118,8 @@
     "topScorerCorrect": "Correct!",
     "topScorerWrong": "Wrong",
     "topScorerPending": "Not decided yet",
-    "actualTopScorers": "Actual top scorer(s)"
+    "actualTopScorers": "Actual top scorer(s)",
+    "penaltyAdvanced": "advanced"
   },
   "leaderboard": {
     "title": "Leaderboard",

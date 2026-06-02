@@ -1,6 +1,6 @@
 import { db } from './db'
 import { predictions, matchResults, tournamentProgress, userScores, users, topScorerPredictions } from '../database/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and, isNotNull, inArray } from 'drizzle-orm'
 import {
   calculateAllGroupStandings,
   extractGroupPlacements,
@@ -65,7 +65,7 @@ function getStageFromMatchId(matchId: string): string {
  * @param isKnockout - whether this is a knockout match
  * @param teamsMatch - whether the predicted teams match the actual teams
  */
-function calculateBasePoints(
+export function calculateBasePoints(
   predHome: number | null,
   predAway: number | null,
   actualHome: number | null,
@@ -675,5 +675,46 @@ export async function recalculateUserScore(userId: number): Promise<void> {
       predictionCount: userPredictions.length,
       calculatedAt: new Date().toISOString(),
     })
+  }
+}
+
+/**
+ * Auto-derive group winners/runners from actual match results
+ * Only fills keys that don't already exist in tournamentProgress (preserving manual overrides)
+ */
+export async function autoDeriveGroupProgress(): Promise<void> {
+  const results = await db
+    .select()
+    .from(matchResults)
+    .where(and(isNotNull(matchResults.homeScore), isNotNull(matchResults.awayScore)))
+
+  const groupResults = results.filter(r => /^[A-L]\d+$/.test(r.matchId))
+
+  const resultsMap: Record<string, GroupMatchPrediction> = {}
+  for (const r of groupResults) {
+    resultsMap[r.matchId] = { homeScore: r.homeScore, awayScore: r.awayScore }
+  }
+
+  const standings = calculateAllGroupStandings(resultsMap)
+  const { winners, runners } = extractGroupPlacements(standings)
+
+  // Get existing progress keys so we don't overwrite manual overrides
+  const existingEntries = await db
+    .select()
+    .from(tournamentProgress)
+
+  const existingKeys = new Set(existingEntries.map(e => e.key))
+
+  for (const group of GROUPS) {
+    const winnerKey = `group${group}_winner`
+    const runnerKey = `group${group}_runner`
+
+    if (winners[group] && !existingKeys.has(winnerKey)) {
+      await db.insert(tournamentProgress).values({ key: winnerKey, teamCode: winners[group]! }).catch(() => {})
+    }
+
+    if (runners[group] && !existingKeys.has(runnerKey)) {
+      await db.insert(tournamentProgress).values({ key: runnerKey, teamCode: runners[group]! }).catch(() => {})
+    }
   }
 }

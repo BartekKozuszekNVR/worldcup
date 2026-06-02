@@ -31,15 +31,6 @@ function stageName(stage: string): string {
   }
 }
 
-const bonusCategories = computed(() => {
-  const bd = scoresStore.bonusData
-  return Object.entries(bd).map(([key, val]) => ({
-    key,
-    label: key,
-    points: val,
-  }))
-})
-
 const matchResults = computed(() => {
   return scoresStore.results.map(r => {
     const pred = predictionsStore.predictions[r.matchId]
@@ -55,6 +46,7 @@ const matchResults = computed(() => {
       predAway: pred?.awayScore,
       pointType: scoreInfo?.type ?? 'miss',
       points: scoreInfo?.points ?? 0,
+      penaltyWinner: r.penaltyWinner,
     }
   })
 })
@@ -108,25 +100,6 @@ onMounted(async () => {
       :bonus-points="scoresStore.userPoints.bonusPoints"
       class="q-mb-lg"
     />
-
-    <!-- Bonus breakdown -->
-    <q-card class="q-mb-md" v-if="bonusCategories.length">
-      <q-card-section>
-        <div class="text-h6">{{ t('results.bonusBreakdown') }}</div>
-      </q-card-section>
-      <q-card-section>
-        <div class="row q-gutter-sm">
-          <q-chip
-            v-for="cat in bonusCategories"
-            :key="cat.key"
-            color="accent"
-            text-color="white"
-          >
-            {{ cat.label }}: {{ cat.points }}
-          </q-chip>
-        </div>
-      </q-card-section>
-    </q-card>
 
     <!-- Top Scorer prediction result -->
     <q-card class="q-mb-md" v-if="scoresStore.topScorerInfo.prediction">
@@ -190,7 +163,7 @@ onMounted(async () => {
             </q-chip>
           </div>
 
-          <!-- Actual result: flags + team names + scores -->
+            <!-- Actual result: flags + team names + scores -->
           <div class="row items-center no-wrap actual-row q-py-xs">
             <!-- Home team -->
             <div class="col row items-center no-wrap">
@@ -210,6 +183,13 @@ onMounted(async () => {
               <span class="team-name text-weight-medium q-mr-sm">{{ teamName(result.awayTeam) }}</span>
               <TeamFlag :code="result.awayTeam ?? 'UN'" size="24px" />
             </div>
+          </div>
+
+          <!-- Penalty winner row -->
+          <div v-if="result.penaltyWinner && result.homeScore === result.awayScore" class="row items-center justify-center no-wrap q-py-xs q-gutter-xs">
+            <TeamFlag :code="result.penaltyWinner" size="16px" />
+            <span class="text-caption text-weight-medium">{{ teamName(result.penaltyWinner) }}</span>
+            <span class="text-caption text-grey-7">{{ t('results.penaltyAdvanced') }}</span>
           </div>
 
           <!-- Prediction row -->

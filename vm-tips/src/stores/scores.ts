@@ -77,6 +77,7 @@ export const useScoresStore = defineStore('scores', () => {
     stage: MatchStage
     homeTeam?: string
     awayTeam?: string
+    penaltyWinner?: string | null
   }) {
     await apiFetch('/api/admin/results', {
       method: 'POST',
@@ -87,6 +88,10 @@ export const useScoresStore = defineStore('scores', () => {
   async function clearAllResults() {
     await apiFetch('/api/admin/results', { method: 'DELETE' })
     results.value = []
+  }
+
+  async function deleteResult(matchId: string) {
+    await apiFetch(`/api/admin/results/${matchId}`, { method: 'DELETE' })
   }
 
   async function saveProgress(data: Record<string, string>) {
@@ -114,6 +119,7 @@ export const useScoresStore = defineStore('scores', () => {
     loadResults,
     loadAdminResults,
     saveResult,
+    deleteResult,
     clearAllResults,
     saveProgress,
     clearProgress,

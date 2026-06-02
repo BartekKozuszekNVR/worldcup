@@ -75,6 +75,7 @@ export const matchResults = sqliteTable('match_results', {
   awayTeam: text('away_team'), // Team code, e.g., "DE", "FR"
   homeScore: integer('home_score'),
   awayScore: integer('away_score'),
+  penaltyWinner: text('penalty_winner'),
   updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 })
 

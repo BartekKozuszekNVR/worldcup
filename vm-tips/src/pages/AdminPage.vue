@@ -15,6 +15,7 @@ import {
 } from '../data/bracketRules'
 import { thirdPlaceCombinations } from '../data/thirdPlaceCombinations'
 import ScoreInput from '../components/ScoreInput.vue'
+import TeamFlag from '../components/TeamFlag.vue'
 import { apiFetch } from '../composables/useApi'
 import type { AuthUser, MatchStage } from '../types'
 
@@ -484,6 +485,19 @@ function confirmClearResults() {
   })
 }
 
+function confirmDeleteMatchResult(match: { id: string }) {
+  $q.dialog({
+    title: 'Delete result',
+    message: `Clear result for ${match.id}?`,
+    cancel: true,
+  }).onOk(async () => {
+    await scoresStore.deleteResult(match.id)
+    resultInputs[match.id].homeScore = null
+    resultInputs[match.id].awayScore = null
+    $q.notify({ type: 'positive', message: `${match.id} deleted` })
+  })
+}
+
 async function populateTestResults() {
   $q.loading.show({ message: 'Generating test data...' })
   try {
@@ -547,6 +561,17 @@ function getKnockoutMatchTeams(matchId: string): { home: string | null; away: st
   return { home: null, away: null }
 }
 
+function getBracketWinner(matchId: string, progress: Record<string, string>): string | undefined {
+  let key: string
+  if (matchId.startsWith('R32-')) key = `r32_${matchId.replace('R32-', '')}_winner`
+  else if (matchId.startsWith('R16-')) key = `r16_${matchId.replace('R16-', '')}_winner`
+  else if (matchId.startsWith('QF-')) key = `qf_${matchId.replace('QF-', '')}_winner`
+  else if (matchId.startsWith('SF-')) key = `sf_${matchId.replace('SF-', '')}_winner`
+  else if (matchId === 'FINAL') key = 'champion'
+  else return undefined
+  return progress[key] || undefined
+}
+
 async function saveAllProgress() {
   $q.loading.show({ message: 'Saving...' })
   try {
@@ -577,6 +602,11 @@ async function saveAllProgress() {
       if (scores.homeScore === null || scores.awayScore === null) continue
       const { home, away } = getKnockoutMatchTeams(matchId)
       if (!home || !away) continue
+      // For draws, derive penalty winner from bracket progress
+      let penaltyWinner: string | null | undefined
+      if (scores.homeScore === scores.awayScore) {
+        penaltyWinner = getBracketWinner(matchId, progressData)
+      }
       await scoresStore.saveResult({
         matchId,
         homeScore: scores.homeScore,
@@ -584,6 +614,7 @@ async function saveAllProgress() {
         stage: getKnockoutStage(matchId),
         homeTeam: home,
         awayTeam: away,
+        penaltyWinner,
       })
     }
 
@@ -682,6 +713,7 @@ onMounted(async () => {
               @update:away-score="resultInputs[match.id].awayScore = $event"
             />
             <q-btn dense flat icon="save" color="primary" class="q-ml-sm" @click="saveMatchResult(match)" />
+            <q-btn dense flat icon="delete" color="negative" class="q-ml-xs" @click="confirmDeleteMatchResult(match)" />
           </div>
           <q-separator class="q-mt-sm" />
         </div>
@@ -689,354 +721,521 @@ onMounted(async () => {
 
       <!-- Progress tab -->
       <q-tab-panel name="progress">
-        <!-- Group Results -->
-        <div class="text-h6 q-mb-sm">{{ t('admin.groupResults') }}</div>
-        <div class="row q-gutter-sm q-mb-lg">
-          <div v-for="group in GROUPS" :key="group" class="col-6 col-sm-4 col-md-3">
-            <div class="text-subtitle2 q-mb-xs">{{ group }}</div>
-            <div v-if="groupStandings[group]?.length" class="q-mb-xs">
-              <div v-for="(team, idx) in groupStandings[group]" :key="team.code" class="text-caption" :class="{ 'text-bold': idx < 2 }">
-                {{ idx + 1 }}. {{ teamName(team.code) }} ({{ team.points }}p, {{ team.gd > 0 ? '+' : '' }}{{ team.gd }})
+        <!-- Diagnostic card -->
+        <q-card flat bordered class="q-mb-md bg-grey-1">
+          <q-card-section class="q-py-sm">
+            <div class="text-subtitle2 q-mb-sm">Prerequisite Status</div>
+            <div class="row q-gutter-md">
+              <div class="col-12 col-sm-6">
+                <div class="text-caption text-weight-medium q-mb-xs">Group Winners &amp; Runners</div>
+                <div v-for="group in GROUPS" :key="group" class="row items-center q-mt-xs">
+                  <span class="text-caption text-grey" style="min-width: 28px">{{ group }}</span>
+                  <q-icon v-if="progressData[`group${group}_winner`]" name="check_circle" size="16px" color="positive" class="q-mr-xs" />
+                  <q-icon v-else name="cancel" size="16px" color="negative" class="q-mr-xs" />
+                  <TeamFlag v-if="progressData[`group${group}_winner`]" :code="progressData[`group${group}_winner`]" size="14px" class="q-mr-xs" />
+                  <q-icon name="arrow_forward" size="14px" class="q-mr-xs text-grey" />
+                  <q-icon v-if="progressData[`group${group}_runner`]" name="check_circle" size="16px" color="positive" class="q-mr-xs" />
+                  <q-icon v-else name="cancel" size="16px" color="negative" class="q-mr-xs" />
+                  <TeamFlag v-if="progressData[`group${group}_runner`]" :code="progressData[`group${group}_runner`]" size="14px" />
+                </div>
+              </div>
+              <div class="col-12 col-sm-6">
+                <div class="text-caption text-weight-medium q-mb-xs">Third-Place Teams</div>
+                <div class="row items-center q-mt-xs">
+                  <span class="text-caption">Selected: {{ Object.keys(thirdPlaceGroupMap).length }}/8</span>
+                  <q-icon v-if="Object.keys(thirdPlaceGroupMap).length === 8" name="check_circle" size="16px" color="positive" class="q-ml-xs" />
+                  <q-icon v-else name="cancel" size="16px" color="negative" class="q-ml-xs" />
+                </div>
+                <div v-if="thirdPlaceCombination" class="row items-center q-mt-xs">
+                  <q-icon name="check_circle" size="16px" color="positive" class="q-mr-xs" />
+                  <span class="text-caption text-positive">Combination found — R32 teams will resolve</span>
+                </div>
+                <div v-else-if="Object.keys(thirdPlaceGroupMap).length === 8" class="row items-center q-mt-xs">
+                  <q-icon name="warning" size="16px" color="warning" class="q-mr-xs" />
+                  <span class="text-caption text-orange">8 teams selected but no matching combination — check for duplicate groups</span>
+                </div>
+                <div v-else class="row items-center q-mt-xs">
+                  <q-icon name="info" size="16px" color="info" class="q-mr-xs" />
+                  <span class="text-caption text-grey">Select 8 teams from different groups</span>
+                </div>
               </div>
             </div>
-            <q-select
-              v-model="progressData[`group${group}_winner`]"
-              :options="groupTeamOptions(group)"
-              emit-value
-              map-options
-              dense
-              outlined
-              clearable
-              :label="t('admin.winner')"
-            />
-            <q-select
-              v-model="progressData[`group${group}_runner`]"
-              :options="groupTeamOptions(group)"
-              emit-value
-              map-options
-              dense
-              outlined
-              clearable
-              :label="t('admin.runnerUp')"
-              class="q-mt-xs"
-            />
-          </div>
-        </div>
+          </q-card-section>
+        </q-card>
+
+        <!-- Group Results -->
+        <q-card flat bordered class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">{{ t('admin.groupResults') }}</div>
+          </q-card-section>
+          <q-card-section class="q-pt-none">
+            <div class="row q-gutter-sm">
+              <div v-for="group in GROUPS" :key="group" class="col-12 col-sm-4 col-md-3 col-lg-2">
+                <q-card flat bordered class="q-pa-sm">
+                  <div class="text-subtitle2 text-center">{{ t('predictions.group') }} {{ group }}</div>
+                  <div v-if="groupStandings[group]?.length" class="q-mb-xs">
+                    <div v-for="(team, idx) in groupStandings[group]" :key="team.code" class="row items-center q-mt-xs" :class="{ 'text-weight-bold': idx < 2 }">
+                      <TeamFlag :code="team.code" size="14px" class="q-mr-xs" />
+                      <span class="text-caption">{{ idx + 1 }}. {{ teamName(team.code) }} ({{ team.points }}p)</span>
+                    </div>
+                  </div>
+                  <q-select
+                    v-model="progressData[`group${group}_winner`]"
+                    :options="groupTeamOptions(group)"
+                    emit-value
+                    map-options
+                    dense
+                    outlined
+                    clearable
+                    :label="t('admin.winner')"
+                    class="q-mt-sm"
+                  >
+                    <template #option="scope">
+                      <q-item v-bind="scope.itemProps">
+                        <q-item-section avatar>
+                          <TeamFlag :code="scope.opt.value" size="20px" />
+                        </q-item-section>
+                        <q-item-section>{{ scope.opt.label }}</q-item-section>
+                      </q-item>
+                    </template>
+                    <template #selected-item="scope">
+                      <div class="row items-center no-wrap q-gutter-xs">
+                        <TeamFlag :code="scope.opt.value" size="16px" />
+                        <span>{{ scope.opt.label }}</span>
+                      </div>
+                    </template>
+                  </q-select>
+                  <q-select
+                    v-model="progressData[`group${group}_runner`]"
+                    :options="groupTeamOptions(group)"
+                    emit-value
+                    map-options
+                    dense
+                    outlined
+                    clearable
+                    :label="t('admin.runnerUp')"
+                    class="q-mt-xs"
+                  >
+                    <template #option="scope">
+                      <q-item v-bind="scope.itemProps">
+                        <q-item-section avatar>
+                          <TeamFlag :code="scope.opt.value" size="20px" />
+                        </q-item-section>
+                        <q-item-section>{{ scope.opt.label }}</q-item-section>
+                      </q-item>
+                    </template>
+                    <template #selected-item="scope">
+                      <div class="row items-center no-wrap q-gutter-xs">
+                        <TeamFlag :code="scope.opt.value" size="16px" />
+                        <span>{{ scope.opt.label }}</span>
+                      </div>
+                    </template>
+                  </q-select>
+                </q-card>
+              </div>
+            </div>
+          </q-card-section>
+        </q-card>
 
         <!-- Best Third Place -->
-        <div class="text-h6 q-mb-sm">{{ t('admin.bestThird') }}</div>
-        <div class="row q-gutter-sm q-mb-lg">
-          <q-select
-            v-for="i in 8"
-            :key="i"
-            v-model="progressData[`bestThird_${i}`]"
-            :options="teamOptions"
-            emit-value
-            map-options
-            dense
-            outlined
-            clearable
-            :label="`#${i}`"
-            style="min-width: 140px"
-          />
-        </div>
+        <q-card flat bordered class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">{{ t('admin.bestThird') }}</div>
+          </q-card-section>
+          <q-card-section class="q-pt-none">
+            <div class="row q-gutter-sm">
+              <q-select
+                v-for="i in 8"
+                :key="i"
+                v-model="progressData[`bestThird_${i}`]"
+                :options="teamOptions"
+                emit-value
+                map-options
+                dense
+                outlined
+                clearable
+                :label="`#${i}`"
+                style="min-width: 140px"
+              >
+                <template #option="scope">
+                  <q-item v-bind="scope.itemProps">
+                    <q-item-section avatar>
+                      <TeamFlag :code="scope.opt.value" size="20px" />
+                    </q-item-section>
+                    <q-item-section>{{ scope.opt.label }}</q-item-section>
+                  </q-item>
+                </template>
+                <template #selected-item="scope">
+                  <div class="row items-center no-wrap q-gutter-xs">
+                    <TeamFlag :code="scope.opt.value" size="16px" />
+                    <span>{{ scope.opt.label }}</span>
+                  </div>
+                </template>
+              </q-select>
+            </div>
+          </q-card-section>
+        </q-card>
 
         <!-- Round of 32 -->
-        <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - R32</div>
-        <div class="q-mb-lg">
-          <div v-for="match in r32Options" :key="match.id" class="row items-center q-mb-sm">
-            <div class="col-auto text-caption text-grey" style="width: 55px">{{ match.id }}</div>
-            <div class="col-auto text-body2" style="min-width: 100px">
-              {{ match.home ? teamName(match.home) : 'TBD' }}
+        <q-card flat bordered class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">{{ t('admin.knockoutProgress') }} - R32</div>
+          </q-card-section>
+          <q-card-section class="q-pt-none">
+            <div v-for="match in r32Options" :key="match.id" class="row q-mb-sm q-pa-sm items-center" style="border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;">
+              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 55px">{{ match.id }}</div>
+              <div class="col-12 col-sm">
+                <ScoreInput
+                  :match-id="match.id"
+                  :home-team="match.home ?? 'UN'"
+                  :away-team="match.away ?? 'UN'"
+                  :home-score="knockoutScores[match.id].homeScore"
+                  :away-score="knockoutScores[match.id].awayScore"
+                  :disabled="!match.home || !match.away"
+                  @update:home-score="knockoutScores[match.id].homeScore = $event"
+                  @update:away-score="knockoutScores[match.id].awayScore = $event"
+                />
+              </div>
+              <div class="col-12 col-sm-auto row items-center no-wrap q-gutter-xs q-pt-xs q-pt-sm-none">
+                <q-icon name="arrow_forward" />
+                <q-select
+                  v-model="progressData[`r32_${match.matchNum}_winner`]"
+                  :options="match.options"
+                  :disable="match.options.length < 2"
+                  emit-value
+                  map-options
+                  dense
+                  outlined
+                  clearable
+                  label="Winner"
+                  style="min-width: 130px"
+                >
+                  <template #option="scope">
+                    <q-item v-bind="scope.itemProps">
+                      <q-item-section avatar>
+                        <TeamFlag :code="scope.opt.value" size="20px" />
+                      </q-item-section>
+                      <q-item-section>{{ scope.opt.label }}</q-item-section>
+                    </q-item>
+                  </template>
+                  <template #selected-item="scope">
+                    <div class="row items-center no-wrap q-gutter-xs">
+                      <TeamFlag :code="scope.opt.value" size="16px" />
+                      <span>{{ scope.opt.label }}</span>
+                    </div>
+                  </template>
+                </q-select>
+              </div>
             </div>
-            <q-input
-              v-model.number="knockoutScores[match.id].homeScore"
-              type="number"
-              dense
-              outlined
-              style="width: 50px"
-              class="q-mx-xs"
-              :disable="!match.home || !match.away"
-            />
-            <span class="text-caption q-mx-xs">-</span>
-            <q-input
-              v-model.number="knockoutScores[match.id].awayScore"
-              type="number"
-              dense
-              outlined
-              style="width: 50px"
-              class="q-mx-xs"
-              :disable="!match.home || !match.away"
-            />
-            <div class="col-auto text-body2" style="min-width: 100px">
-              {{ match.away ? teamName(match.away) : 'TBD' }}
-            </div>
-            <q-icon name="arrow_right" class="q-mx-xs" />
-            <q-select
-              v-model="progressData[`r32_${match.matchNum}_winner`]"
-              :options="match.options"
-              :disable="match.options.length < 2"
-              emit-value
-              map-options
-              dense
-              outlined
-              clearable
-              label="Winner"
-              style="min-width: 140px"
-            />
-          </div>
-        </div>
+          </q-card-section>
+        </q-card>
 
         <!-- Round of 16 -->
-        <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - R16</div>
-        <div class="q-mb-lg">
-          <div v-for="match in r16Options" :key="match.id" class="row items-center q-mb-sm">
-            <div class="col-auto text-caption text-grey" style="width: 55px">{{ match.id }}</div>
-            <div class="col-auto text-body2" style="min-width: 100px">
-              {{ match.home ? teamName(match.home) : 'TBD' }}
+        <q-card flat bordered class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">{{ t('admin.knockoutProgress') }} - R16</div>
+          </q-card-section>
+          <q-card-section class="q-pt-none">
+            <div v-for="match in r16Options" :key="match.id" class="row q-mb-sm q-pa-sm items-center" style="border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;">
+              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 55px">{{ match.id }}</div>
+              <div class="col-12 col-sm">
+                <ScoreInput
+                  :match-id="match.id"
+                  :home-team="match.home ?? 'UN'"
+                  :away-team="match.away ?? 'UN'"
+                  :home-score="knockoutScores[match.id].homeScore"
+                  :away-score="knockoutScores[match.id].awayScore"
+                  :disabled="!match.home || !match.away"
+                  @update:home-score="knockoutScores[match.id].homeScore = $event"
+                  @update:away-score="knockoutScores[match.id].awayScore = $event"
+                />
+              </div>
+              <div class="col-12 col-sm-auto row items-center no-wrap q-gutter-xs q-pt-xs q-pt-sm-none">
+                <q-icon name="arrow_forward" />
+                <q-select
+                  v-model="progressData[`r16_${match.matchNum}_winner`]"
+                  :options="match.options"
+                  :disable="match.options.length < 2"
+                  emit-value
+                  map-options
+                  dense
+                  outlined
+                  clearable
+                  label="Winner"
+                  style="min-width: 130px"
+                >
+                  <template #option="scope">
+                    <q-item v-bind="scope.itemProps">
+                      <q-item-section avatar>
+                        <TeamFlag :code="scope.opt.value" size="20px" />
+                      </q-item-section>
+                      <q-item-section>{{ scope.opt.label }}</q-item-section>
+                    </q-item>
+                  </template>
+                  <template #selected-item="scope">
+                    <div class="row items-center no-wrap q-gutter-xs">
+                      <TeamFlag :code="scope.opt.value" size="16px" />
+                      <span>{{ scope.opt.label }}</span>
+                    </div>
+                  </template>
+                </q-select>
+              </div>
             </div>
-            <q-input
-              v-model.number="knockoutScores[match.id].homeScore"
-              type="number"
-              dense
-              outlined
-              style="width: 50px"
-              class="q-mx-xs"
-              :disable="!match.home || !match.away"
-            />
-            <span class="text-caption q-mx-xs">-</span>
-            <q-input
-              v-model.number="knockoutScores[match.id].awayScore"
-              type="number"
-              dense
-              outlined
-              style="width: 50px"
-              class="q-mx-xs"
-              :disable="!match.home || !match.away"
-            />
-            <div class="col-auto text-body2" style="min-width: 100px">
-              {{ match.away ? teamName(match.away) : 'TBD' }}
-            </div>
-            <q-icon name="arrow_right" class="q-mx-xs" />
-            <q-select
-              v-model="progressData[`r16_${match.matchNum}_winner`]"
-              :options="match.options"
-              :disable="match.options.length < 2"
-              emit-value
-              map-options
-              dense
-              outlined
-              clearable
-              label="Winner"
-              style="min-width: 140px"
-            />
-          </div>
-        </div>
+          </q-card-section>
+        </q-card>
 
         <!-- Quarter-Finals -->
-        <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - QF</div>
-        <div class="q-mb-lg">
-          <div v-for="match in qfOptions" :key="match.id" class="row items-center q-mb-sm">
-            <div class="col-auto text-caption text-grey" style="width: 55px">{{ match.id }}</div>
-            <div class="col-auto text-body2" style="min-width: 100px">
-              {{ match.home ? teamName(match.home) : 'TBD' }}
+        <q-card flat bordered class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">{{ t('admin.knockoutProgress') }} - QF</div>
+          </q-card-section>
+          <q-card-section class="q-pt-none">
+            <div v-for="match in qfOptions" :key="match.id" class="row q-mb-sm q-pa-sm items-center" style="border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;">
+              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 55px">{{ match.id }}</div>
+              <div class="col-12 col-sm">
+                <ScoreInput
+                  :match-id="match.id"
+                  :home-team="match.home ?? 'UN'"
+                  :away-team="match.away ?? 'UN'"
+                  :home-score="knockoutScores[match.id].homeScore"
+                  :away-score="knockoutScores[match.id].awayScore"
+                  :disabled="!match.home || !match.away"
+                  @update:home-score="knockoutScores[match.id].homeScore = $event"
+                  @update:away-score="knockoutScores[match.id].awayScore = $event"
+                />
+              </div>
+              <div class="col-12 col-sm-auto row items-center no-wrap q-gutter-xs q-pt-xs q-pt-sm-none">
+                <q-icon name="arrow_forward" />
+                <q-select
+                  v-model="progressData[`qf_${match.matchNum}_winner`]"
+                  :options="match.options"
+                  :disable="match.options.length < 2"
+                  emit-value
+                  map-options
+                  dense
+                  outlined
+                  clearable
+                  label="Winner"
+                  style="min-width: 130px"
+                >
+                  <template #option="scope">
+                    <q-item v-bind="scope.itemProps">
+                      <q-item-section avatar>
+                        <TeamFlag :code="scope.opt.value" size="20px" />
+                      </q-item-section>
+                      <q-item-section>{{ scope.opt.label }}</q-item-section>
+                    </q-item>
+                  </template>
+                  <template #selected-item="scope">
+                    <div class="row items-center no-wrap q-gutter-xs">
+                      <TeamFlag :code="scope.opt.value" size="16px" />
+                      <span>{{ scope.opt.label }}</span>
+                    </div>
+                  </template>
+                </q-select>
+              </div>
             </div>
-            <q-input
-              v-model.number="knockoutScores[match.id].homeScore"
-              type="number"
-              dense
-              outlined
-              style="width: 50px"
-              class="q-mx-xs"
-              :disable="!match.home || !match.away"
-            />
-            <span class="text-caption q-mx-xs">-</span>
-            <q-input
-              v-model.number="knockoutScores[match.id].awayScore"
-              type="number"
-              dense
-              outlined
-              style="width: 50px"
-              class="q-mx-xs"
-              :disable="!match.home || !match.away"
-            />
-            <div class="col-auto text-body2" style="min-width: 100px">
-              {{ match.away ? teamName(match.away) : 'TBD' }}
-            </div>
-            <q-icon name="arrow_right" class="q-mx-xs" />
-            <q-select
-              v-model="progressData[`qf_${match.matchNum}_winner`]"
-              :options="match.options"
-              :disable="match.options.length < 2"
-              emit-value
-              map-options
-              dense
-              outlined
-              clearable
-              label="Winner"
-              style="min-width: 140px"
-            />
-          </div>
-        </div>
+          </q-card-section>
+        </q-card>
 
         <!-- Semi-Finals -->
-        <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - SF</div>
-        <div class="q-mb-lg">
-          <div v-for="match in sfOptions" :key="match.id" class="row items-center q-mb-sm">
-            <div class="col-auto text-caption text-grey" style="width: 55px">{{ match.id }}</div>
-            <div class="col-auto text-body2" style="min-width: 100px">
-              {{ match.home ? teamName(match.home) : 'TBD' }}
+        <q-card flat bordered class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">{{ t('admin.knockoutProgress') }} - SF</div>
+          </q-card-section>
+          <q-card-section class="q-pt-none">
+            <div v-for="match in sfOptions" :key="match.id" class="row q-mb-sm q-pa-sm items-center" style="border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;">
+              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 55px">{{ match.id }}</div>
+              <div class="col-12 col-sm">
+                <ScoreInput
+                  :match-id="match.id"
+                  :home-team="match.home ?? 'UN'"
+                  :away-team="match.away ?? 'UN'"
+                  :home-score="knockoutScores[match.id].homeScore"
+                  :away-score="knockoutScores[match.id].awayScore"
+                  :disabled="!match.home || !match.away"
+                  @update:home-score="knockoutScores[match.id].homeScore = $event"
+                  @update:away-score="knockoutScores[match.id].awayScore = $event"
+                />
+              </div>
+              <div class="col-12 col-sm-auto row items-center no-wrap q-gutter-xs q-pt-xs q-pt-sm-none">
+                <q-icon name="arrow_forward" />
+                <q-select
+                  v-model="progressData[`sf_${match.matchNum}_winner`]"
+                  :options="match.options"
+                  :disable="match.options.length < 2"
+                  emit-value
+                  map-options
+                  dense
+                  outlined
+                  clearable
+                  label="Winner"
+                  style="min-width: 130px"
+                >
+                  <template #option="scope">
+                    <q-item v-bind="scope.itemProps">
+                      <q-item-section avatar>
+                        <TeamFlag :code="scope.opt.value" size="20px" />
+                      </q-item-section>
+                      <q-item-section>{{ scope.opt.label }}</q-item-section>
+                    </q-item>
+                  </template>
+                  <template #selected-item="scope">
+                    <div class="row items-center no-wrap q-gutter-xs">
+                      <TeamFlag :code="scope.opt.value" size="16px" />
+                      <span>{{ scope.opt.label }}</span>
+                    </div>
+                  </template>
+                </q-select>
+              </div>
             </div>
-            <q-input
-              v-model.number="knockoutScores[match.id].homeScore"
-              type="number"
-              dense
-              outlined
-              style="width: 50px"
-              class="q-mx-xs"
-              :disable="!match.home || !match.away"
-            />
-            <span class="text-caption q-mx-xs">-</span>
-            <q-input
-              v-model.number="knockoutScores[match.id].awayScore"
-              type="number"
-              dense
-              outlined
-              style="width: 50px"
-              class="q-mx-xs"
-              :disable="!match.home || !match.away"
-            />
-            <div class="col-auto text-body2" style="min-width: 100px">
-              {{ match.away ? teamName(match.away) : 'TBD' }}
-            </div>
-            <q-icon name="arrow_right" class="q-mx-xs" />
-            <q-select
-              v-model="progressData[`sf_${match.matchNum}_winner`]"
-              :options="match.options"
-              :disable="match.options.length < 2"
-              emit-value
-              map-options
-              dense
-              outlined
-              clearable
-              label="Winner"
-              style="min-width: 140px"
-            />
-          </div>
-        </div>
+          </q-card-section>
+        </q-card>
 
         <!-- Final -->
-        <div class="text-h6 q-mb-sm">{{ t('admin.knockoutProgress') }} - Final</div>
-        <div class="q-mb-lg">
-          <div class="row items-center q-mb-sm">
-            <div class="col-auto text-caption text-grey" style="width: 55px">FINAL</div>
-            <div class="col-auto text-body2" style="min-width: 100px">
-              {{ finalOptions.home ? teamName(finalOptions.home) : 'TBD' }}
+        <q-card flat bordered class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">{{ t('admin.knockoutProgress') }} - Final</div>
+          </q-card-section>
+          <q-card-section class="q-pt-none">
+            <div class="row q-mb-sm q-pa-sm items-center" style="border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;">
+              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 55px">FINAL</div>
+              <div class="col-12 col-sm">
+                <ScoreInput
+                  match-id="FINAL"
+                  :home-team="finalOptions.home ?? 'UN'"
+                  :away-team="finalOptions.away ?? 'UN'"
+                  :home-score="knockoutScores['FINAL'].homeScore"
+                  :away-score="knockoutScores['FINAL'].awayScore"
+                  :disabled="!finalOptions.home || !finalOptions.away"
+                  @update:home-score="knockoutScores['FINAL'].homeScore = $event"
+                  @update:away-score="knockoutScores['FINAL'].awayScore = $event"
+                />
+              </div>
+              <div class="col-12 col-sm-auto row items-center no-wrap q-gutter-xs q-pt-xs q-pt-sm-none">
+                <q-icon name="arrow_forward" />
+                <q-select
+                  v-model="progressData['champion']"
+                  :options="finalOptions.options"
+                  :disable="finalOptions.options.length < 2"
+                  emit-value
+                  map-options
+                  dense
+                  outlined
+                  clearable
+                  label="Champion"
+                  style="min-width: 130px"
+                >
+                  <template #option="scope">
+                    <q-item v-bind="scope.itemProps">
+                      <q-item-section avatar>
+                        <TeamFlag :code="scope.opt.value" size="20px" />
+                      </q-item-section>
+                      <q-item-section>{{ scope.opt.label }}</q-item-section>
+                    </q-item>
+                  </template>
+                  <template #selected-item="scope">
+                    <div class="row items-center no-wrap q-gutter-xs">
+                      <TeamFlag :code="scope.opt.value" size="16px" />
+                      <span>{{ scope.opt.label }}</span>
+                    </div>
+                  </template>
+                </q-select>
+              </div>
             </div>
-            <q-input
-              v-model.number="knockoutScores['FINAL'].homeScore"
-              type="number"
-              dense
-              outlined
-              style="width: 50px"
-              class="q-mx-xs"
-              :disable="!finalOptions.home || !finalOptions.away"
-            />
-            <span class="text-caption q-mx-xs">-</span>
-            <q-input
-              v-model.number="knockoutScores['FINAL'].awayScore"
-              type="number"
-              dense
-              outlined
-              style="width: 50px"
-              class="q-mx-xs"
-              :disable="!finalOptions.home || !finalOptions.away"
-            />
-            <div class="col-auto text-body2" style="min-width: 100px">
-              {{ finalOptions.away ? teamName(finalOptions.away) : 'TBD' }}
-            </div>
-            <q-icon name="arrow_right" class="q-mx-xs" />
-            <q-select
-              v-model="progressData['champion']"
-              :options="finalOptions.options"
-              :disable="finalOptions.options.length < 2"
-              emit-value
-              map-options
-              dense
-              outlined
-              clearable
-              label="Champion"
-              style="min-width: 140px"
-            />
-          </div>
-        </div>
+          </q-card-section>
+        </q-card>
 
         <!-- Derived info display -->
-        <div v-if="progressData['qf_1_winner'] || progressData['sf_1_winner'] || progressData['champion']" class="q-mb-lg">
-          <q-banner rounded class="bg-blue-1">
+        <q-card v-if="progressData['qf_1_winner'] || progressData['sf_1_winner'] || progressData['champion']" flat bordered class="q-mb-md bg-blue-1">
+          <q-card-section>
             <div class="text-subtitle2 q-mb-xs">Auto-derived scoring keys:</div>
-            <div v-if="progressData['qf_1_winner']" class="text-caption">
-              Semifinalists: {{ [1,2,3,4].map(i => progressData[`qf_${i}_winner`]).filter(Boolean).map(c => teamName(c!)).join(', ') }}
+            <div v-if="progressData['qf_1_winner']" class="row items-center no-wrap q-mt-xs">
+              <span class="text-caption text-weight-medium" style="min-width: 120px">Semifinalists:</span>
+              <template v-for="i in 4" :key="i">
+                <template v-if="progressData[`qf_${i}_winner`]">
+                  <TeamFlag :code="progressData[`qf_${i}_winner`]" size="16px" class="q-mx-xs" />
+                  <span class="text-caption">{{ teamName(progressData[`qf_${i}_winner`]) }}</span>
+                  <span v-if="i < 4 && [2,3].filter(j => progressData[`qf_${j}_winner`]).length" class="q-mx-xs text-grey">·</span>
+                </template>
+              </template>
             </div>
-            <div v-if="progressData['sf_1_winner']" class="text-caption">
-              Finalists: {{ [1,2].map(i => progressData[`sf_${i}_winner`]).filter(Boolean).map(c => teamName(c!)).join(', ') }}
+            <div v-if="progressData['sf_1_winner']" class="row items-center no-wrap q-mt-xs">
+              <span class="text-caption text-weight-medium" style="min-width: 120px">Finalists:</span>
+              <template v-for="i in 2" :key="i">
+                <template v-if="progressData[`sf_${i}_winner`]">
+                  <TeamFlag :code="progressData[`sf_${i}_winner`]" size="16px" class="q-mx-xs" />
+                  <span class="text-caption">{{ teamName(progressData[`sf_${i}_winner`]) }}</span>
+                  <span v-if="i < 2 && progressData[`sf_2_winner`]" class="q-mx-xs text-grey">·</span>
+                </template>
+              </template>
             </div>
-            <div v-if="progressData['champion']" class="text-caption">
-              Champion: {{ teamName(progressData['champion']) }}
+            <div v-if="progressData['champion']" class="row items-center no-wrap q-mt-xs">
+              <span class="text-caption text-weight-medium" style="min-width: 120px">Champion:</span>
+              <TeamFlag :code="progressData['champion']" size="16px" class="q-mx-xs" />
+              <span class="text-caption text-weight-bold">{{ teamName(progressData['champion']) }}</span>
             </div>
-          </q-banner>
-        </div>
+          </q-card-section>
+        </q-card>
 
         <!-- Actual Top Scorers -->
-        <div class="text-h6 q-mb-sm">{{ t('admin.actualTopScorers') }}</div>
-        <div class="q-mb-lg">
-          <div v-for="key in topScorerProgressKeys" :key="key" class="row items-center q-mb-sm">
-            <q-input
-              v-model="progressData[key]"
-              dense
-              outlined
-              :placeholder="t('admin.addTopScorer')"
-              style="min-width: 200px"
-              class="col"
-            />
-            <q-btn flat dense icon="close" color="negative" class="q-ml-sm" @click="removeTopScorerFromProgress(key)" />
-          </div>
-          <q-btn flat dense icon="add" :label="t('admin.addTopScorer')" color="primary" @click="addTopScorerToProgress" />
-        </div>
+        <q-card flat bordered class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">{{ t('admin.actualTopScorers') }}</div>
+          </q-card-section>
+          <q-card-section class="q-pt-none">
+            <div v-for="key in topScorerProgressKeys" :key="key" class="row items-center q-mb-sm">
+              <q-input
+                v-model="progressData[key]"
+                dense
+                outlined
+                :placeholder="t('admin.addTopScorer')"
+                style="min-width: 200px"
+                class="col"
+              />
+              <q-btn flat dense icon="close" color="negative" class="q-ml-sm" @click="removeTopScorerFromProgress(key)" />
+            </div>
+            <q-btn flat dense icon="add" :label="t('admin.addTopScorer')" color="primary" @click="addTopScorerToProgress" />
+          </q-card-section>
+        </q-card>
 
         <!-- Award Top Scorer Predictions -->
-        <div class="text-h6 q-mb-sm">{{ t('admin.awardTopScorer') }}</div>
-        <div class="q-mb-lg">
-          <q-inner-loading :showing="topScorerLoading" />
-          <div v-if="topScorerEntries.length === 0 && !topScorerLoading" class="text-grey-6">
-            No predictions yet
-          </div>
-          <q-list v-else separator bordered class="rounded-borders">
-            <q-item v-for="entry in topScorerEntries" :key="entry.userId">
-              <q-item-section>
-                <q-item-label>{{ entry.username }}</q-item-label>
-                <q-item-label caption>{{ entry.playerName }}</q-item-label>
-              </q-item-section>
-              <q-item-section side>
-                <q-toggle
-                  v-model="entry.isCorrect"
-                  :label="t('admin.markCorrect')"
-                  color="positive"
-                />
-              </q-item-section>
-            </q-item>
-          </q-list>
-          <q-btn
-            v-if="topScorerEntries.length > 0"
-            color="primary"
-            :label="t('common.save')"
-            class="q-mt-sm"
-            @click="saveTopScorerAwards"
-          />
-        </div>
+        <q-card flat bordered class="q-mb-md">
+          <q-card-section>
+            <div class="text-h6">{{ t('admin.awardTopScorer') }}</div>
+          </q-card-section>
+          <q-card-section class="q-pt-none">
+            <q-inner-loading :showing="topScorerLoading" />
+            <div v-if="topScorerEntries.length === 0 && !topScorerLoading" class="text-grey-6">
+              No predictions yet
+            </div>
+            <q-list v-else separator bordered class="rounded-borders">
+              <q-item v-for="entry in topScorerEntries" :key="entry.userId">
+                <q-item-section>
+                  <q-item-label>{{ entry.username }}</q-item-label>
+                  <q-item-label caption>{{ entry.playerName }}</q-item-label>
+                </q-item-section>
+                <q-item-section side>
+                  <q-toggle
+                    v-model="entry.isCorrect"
+                    :label="t('admin.markCorrect')"
+                    color="positive"
+                  />
+                </q-item-section>
+              </q-item>
+            </q-list>
+            <q-btn
+              v-if="topScorerEntries.length > 0"
+              color="primary"
+              :label="t('common.save')"
+              class="q-mt-sm"
+              @click="saveTopScorerAwards"
+            />
+          </q-card-section>
+        </q-card>
 
         <!-- Save / Clear buttons -->
-        <div class="row q-gutter-sm">
+        <div class="row q-gutter-sm q-mb-md">
           <q-btn color="primary" :label="t('common.save')" @click="saveAllProgress" />
           <q-btn color="negative" :label="t('admin.clearAll')" @click="confirmClearProgress" />
         </div>

@@ -51,6 +51,7 @@ export interface MatchResult {
   homeScore: number
   awayScore: number
   stage: MatchStage
+  penaltyWinner?: string | null
 }
 
 export interface LeaderboardEntry {

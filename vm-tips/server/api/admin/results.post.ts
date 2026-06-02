@@ -2,7 +2,7 @@ import { defineEventHandler, readBody, createError } from 'h3'
 import { db } from '../../utils/db'
 import { matchResults } from '../../database/schema'
 import { eq } from 'drizzle-orm'
-import { recalculateAllScores } from '../../utils/scoring'
+import { recalculateAllScores, autoDeriveGroupProgress } from '../../utils/scoring'
 
 interface ResultBody {
   matchId?: string
@@ -10,6 +10,7 @@ interface ResultBody {
   awayTeam?: string | null
   homeScore?: number | null
   awayScore?: number | null
+  penaltyWinner?: string | null
 }
 
 export default defineEventHandler(async (event) => {
@@ -40,7 +41,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const { matchId, homeTeam, awayTeam, homeScore, awayScore } = body
+  const { matchId, homeTeam, awayTeam, homeScore, awayScore, penaltyWinner } = body
 
   // Check if result already exists
   const existing = await db
@@ -58,6 +59,7 @@ export default defineEventHandler(async (event) => {
         awayTeam: awayTeam ?? null,
         homeScore: homeScore ?? null,
         awayScore: awayScore ?? null,
+        penaltyWinner: penaltyWinner ?? null,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(matchResults.matchId, matchId))
@@ -69,12 +71,16 @@ export default defineEventHandler(async (event) => {
       awayTeam: awayTeam ?? null,
       homeScore: homeScore ?? null,
       awayScore: awayScore ?? null,
+      penaltyWinner: penaltyWinner ?? null,
       updatedAt: new Date().toISOString(),
     })
   }
 
   // Recalculate all user scores immediately
   await recalculateAllScores()
+
+  // Auto-derive group progress from results (only fills missing keys)
+  await autoDeriveGroupProgress()
 
   return {
     success: true,

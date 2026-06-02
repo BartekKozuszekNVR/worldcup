@@ -1,6 +1,8 @@
 import { defineEventHandler, createError } from 'h3'
 import { db } from '../../utils/db'
-import { matchResults, userScores } from '../../database/schema'
+import { matchResults, userScores, tournamentProgress } from '../../database/schema'
+import { inArray } from 'drizzle-orm'
+import { GROUPS } from '../../utils/groupSimulation'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user
@@ -33,6 +35,10 @@ export default defineEventHandler(async (event) => {
     correctOutcomes: 0,
     calculatedAt: new Date().toISOString(),
   })
+
+  // Clear auto-derived group progress
+  const groupKeys = GROUPS.flatMap(g => [`group${g}_winner`, `group${g}_runner`])
+  await db.delete(tournamentProgress).where(inArray(tournamentProgress.key, groupKeys))
 
   return {
     success: true,

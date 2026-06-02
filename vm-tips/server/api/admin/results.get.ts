@@ -43,6 +43,7 @@ export default defineEventHandler(async (event) => {
     homeScore: r.homeScore,
     awayScore: r.awayScore,
     stage: getStageFromMatchId(r.matchId),
+    penaltyWinner: r.penaltyWinner,
   }))
 
   // Get tournament progress for bonus data

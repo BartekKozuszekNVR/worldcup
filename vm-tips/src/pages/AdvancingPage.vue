@@ -297,9 +297,11 @@ onMounted(async () => {
               v-if="getMatchPrediction(match.id)?.homeScore !== null && getMatchPrediction(match.id)?.homeScore === getMatchPrediction(match.id)?.awayScore && getMatchPrediction(match.id)?.penaltyWinner"
               class="text-center q-mt-xs"
             >
-              <q-chip dense size="sm" color="orange" text-color="white">
-                {{ t('predictions.penaltyWinner') }}: {{ getTeamName(getMatchPrediction(match.id)!.penaltyWinner!) }}
-              </q-chip>
+              <div class="row items-center justify-center no-wrap q-gutter-xs">
+                <TeamFlag :code="getMatchPrediction(match.id)!.penaltyWinner!" size="16px" />
+                <span class="text-caption text-weight-medium">{{ getTeamName(getMatchPrediction(match.id)!.penaltyWinner!) }}</span>
+                <span class="text-caption text-grey-7">{{ t('results.penaltyAdvanced') }}</span>
+              </div>
             </div>
           </q-card-section>
         </q-card>
