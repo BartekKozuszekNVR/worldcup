@@ -2,7 +2,7 @@
   "app": {
     "title": "World Cup Tips 2026",
     "predict": "Predict",
-    "advancing": "Advancing",
+    "advancing": "My bet",
     "results": "Results",
     "leaderboard": "Leaderboard",
     "profile": "Profile",
@@ -14,7 +14,7 @@
   },
   "nav": {
     "predict": "Predict",
-    "advancing": "Advancing",
+    "advancing": "My bet",
     "results": "Results",
     "leaderboard": "Leaderboard",
     "profile": "Profile",

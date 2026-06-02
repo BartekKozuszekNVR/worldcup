@@ -2,7 +2,7 @@
   "app": {
     "title": "VM Tips 2026",
     "predict": "Tippa",
-    "advancing": "Vidare",
+    "advancing": "Mitt tips",
     "results": "Resultat",
     "leaderboard": "Topplista",
     "profile": "Profil",
@@ -14,7 +14,7 @@
   },
   "nav": {
     "predict": "Tippa",
-    "advancing": "Vidare",
+    "advancing": "Mitt tips",
     "results": "Resultat",
     "leaderboard": "Topplista",
     "profile": "Profil",

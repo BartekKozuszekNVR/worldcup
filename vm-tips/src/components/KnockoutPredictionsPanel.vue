@@ -2,6 +2,9 @@
 import type { BracketMatch } from '../composables/useBracketSimulation'
 import type { KnockoutPrediction } from '../types'
 import KnockoutMatchCard from './KnockoutMatchCard.vue'
+import { useI18n } from "vue-i18n";
+
+const { t } = useI18n()
 
 const props = defineProps<{
   bracket: BracketMatch[]
@@ -20,12 +23,12 @@ interface Stage {
 }
 
 const stages: Stage[] = [
-  { key: 'r32', label: 'Round of 32', prefix: 'R32-' },
-  { key: 'r16', label: 'Round of 16', prefix: 'R16-' },
-  { key: 'qf', label: 'Quarter-finals', prefix: 'QF-' },
-  { key: 'sf', label: 'Semi-finals', prefix: 'SF-' },
-  { key: 'third', label: 'Third place', prefix: 'THIRD' },
-  { key: 'final', label: 'Final', prefix: 'FINAL' },
+  { key: 'r32', label: t('results.stageR32'), prefix: 'R32-' },
+  { key: 'r16', label: t('results.stageR16'), prefix: 'R16-' },
+  { key: 'qf', label: t('results.stageQF'), prefix: 'QF-' },
+  { key: 'sf', label: t('results.stageSF'), prefix: 'SF-' },
+  { key: 'third', label: t('results.stageThird'), prefix: 'THIRD' },
+  { key: 'final', label: t('results.stageFinal'), prefix: 'FINAL' },
 ]
 
 function matchesForStage(prefix: string): BracketMatch[] {
