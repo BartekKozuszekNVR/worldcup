@@ -706,8 +706,8 @@ onMounted(async () => {
             <q-item-section side>
               <div class="row q-gutter-xs">
                 <q-btn flat dense icon="lock_reset" @click="showResetPassword(user)" />
-                <q-btn flat dense icon="restart_alt" @click="showResetPredictions(user)" />
-                <q-btn flat dense icon="delete" color="negative" @click="showDeleteUser(user)" />
+                <q-btn disable flat dense icon="restart_alt" @click="showResetPredictions(user)" />
+                <q-btn disable flat dense icon="delete" color="negative" @click="showDeleteUser(user)" />
               </div>
             </q-item-section>
           </q-item>
@@ -717,8 +717,8 @@ onMounted(async () => {
       <!-- Match Results tab -->
       <q-tab-panel name="results">
         <div class="row items-center q-gutter-sm q-mb-md">
-          <q-btn color="negative" :label="t('admin.clearAll')" @click="confirmClearResults" />
-          <q-btn color="orange" label="Testdata" icon="science" @click="populateTestResults" />
+          <q-btn disable color="negative" :label="t('admin.clearAll')" @click="confirmClearResults" />
+          <q-btn disable color="orange" label="Testdata" icon="science" @click="populateTestResults" />
         </div>
         <div v-for="match in allMatches" :key="match.id" class="admin-match-row">
           <div class="text-caption text-grey q-mb-xs">{{ match.id }}</div>
