@@ -287,6 +287,52 @@ function buildKnockoutTeamsMap(
 }
 
 /**
+ * Count how many matches in a specific group have results
+ */
+function countMatchesInGroup(group: string, allResults: Array<{ matchId: string }>): number {
+  return allResults.filter(r => r.matchId.startsWith(group)).length
+}
+
+/**
+ * Check if a specific group stage is complete (all 6 matches have results)
+ */
+function isGroupComplete(group: string, allResults: Array<{ matchId: string }>): boolean {
+  return countMatchesInGroup(group, allResults) === 6
+}
+
+/**
+ * Check if all group stages are complete (72 total matches: 12 groups × 6 matches)
+ */
+function isAllGroupStageComplete(allResults: Array<{ matchId: string }>): boolean {
+  // Only count group stage matches (not knockout)
+  const groupMatches = allResults.filter(r => {
+    const matchId = r.matchId
+    return !matchId.startsWith('R32') &&
+           !matchId.startsWith('R16') &&
+           !matchId.startsWith('QF') &&
+           !matchId.startsWith('SF') &&
+           matchId !== 'THIRD' &&
+           matchId !== 'FINAL'
+  })
+  return groupMatches.length === 72
+}
+
+/**
+ * Check if any knockout matches have results
+ */
+function hasKnockoutResults(allResults: Array<{ matchId: string }>): boolean {
+  return allResults.some(r => {
+    const matchId = r.matchId
+    return matchId.startsWith('R32') ||
+           matchId.startsWith('R16') ||
+           matchId.startsWith('QF') ||
+           matchId.startsWith('SF') ||
+           matchId === 'THIRD' ||
+           matchId === 'FINAL'
+  })
+}
+
+/**
  * Calculate full bonus points for a user
  */
 function calculateUserBonusPoints(
@@ -294,7 +340,8 @@ function calculateUserBonusPoints(
   progressMap: Map<string, string>,
   knockoutTeamsMap: Record<string, { home: string | null; away: string | null }>,
   thirdPlaceOverrides: Record<string, number> = {},
-  actualBronzeWinner: string | null = null
+  actualBronzeWinner: string | null = null,
+  allResults: Array<{ matchId: string }> = []
 ): number {
   let bonus = 0
 
@@ -302,8 +349,12 @@ function calculateUserBonusPoints(
   const predictedStandings = calculateAllGroupStandings(userPreds.group)
   const predictedPlacements = extractGroupPlacements(predictedStandings)
 
-  // 2. Compare group winners and runners
+  // 2. Compare group winners and runners - ONLY if each group is complete (6 matches)
   for (const group of GROUPS) {
+    if (!isGroupComplete(group, allResults)) {
+      continue // Skip bonus for groups not yet complete
+    }
+
     const actualWinner = progressMap.get(`group${group}_winner`)
     const actualRunner = progressMap.get(`group${group}_runner`)
     const predictedWinner = predictedPlacements.winners[group]
@@ -318,60 +369,66 @@ function calculateUserBonusPoints(
   }
 
   // 3. Calculate advancing teams bonus (third-place teams only, with overrides)
-  const predictedThirdPlace = getPredictedThirdPlaceTeams(predictedStandings, thirdPlaceOverrides)
-  const actualThirdPlace: string[] = []
-  for (let i = 1; i <= 8; i++) {
-    const thirdPlace = progressMap.get(`bestThird_${i}`)
-    if (thirdPlace) actualThirdPlace.push(thirdPlace)
-  }
+  // ONLY if ALL group stage is complete (all 72 group matches)
+  if (isAllGroupStageComplete(allResults)) {
+    const predictedThirdPlace = getPredictedThirdPlaceTeams(predictedStandings, thirdPlaceOverrides)
+    const actualThirdPlace: string[] = []
+    for (let i = 1; i <= 8; i++) {
+      const thirdPlace = progressMap.get(`bestThird_${i}`)
+      if (thirdPlace) actualThirdPlace.push(thirdPlace)
+    }
 
-  const thirdPlaceMatches = countMatches(predictedThirdPlace, actualThirdPlace)
-  bonus += thirdPlaceMatches * BONUS_POINTS.advancing
+    const thirdPlaceMatches = countMatches(predictedThirdPlace, actualThirdPlace)
+    bonus += thirdPlaceMatches * BONUS_POINTS.advancing
+  }
 
   // 4. Simulate full user bracket for knockout bonuses
-  const bracket = simulateUserBracket(predictedStandings, userPreds.knockout, thirdPlaceOverrides)
+  // ONLY if knockout matches have results
+  if (hasKnockoutResults(allResults)) {
+    const bracket = simulateUserBracket(predictedStandings, userPreds.knockout, thirdPlaceOverrides)
 
-  // 5. Calculate semifinalists bonus
-  const predictedSemifinalists = getPredictedSemifinalists(userPreds.knockout, bracket)
-  const actualSemifinalists: string[] = []
-  for (let i = 1; i <= 4; i++) {
-    const sf = progressMap.get(`semifinalist_${i}`)
-    if (sf) actualSemifinalists.push(sf)
-  }
-  const semifinalistMatches = countMatches(predictedSemifinalists, actualSemifinalists)
-  bonus += semifinalistMatches * BONUS_POINTS.semifinalist
-
-  // 6. Calculate finalists bonus
-  const predictedFinalists = getPredictedFinalists(userPreds.knockout, bracket)
-  const actualFinalists: string[] = []
-  for (let i = 1; i <= 2; i++) {
-    const f = progressMap.get(`finalist_${i}`)
-    if (f) actualFinalists.push(f)
-  }
-  const finalistMatches = countMatches(predictedFinalists, actualFinalists)
-  bonus += finalistMatches * BONUS_POINTS.finalist
-
-  // 7. Calculate champion bonus
-  const predictedChampion = getPredictedChampion(userPreds.knockout, bracket)
-  const actualChampion = progressMap.get('champion')
-  if (predictedChampion && actualChampion && predictedChampion === actualChampion) {
-    bonus += BONUS_POINTS.champion
-  }
-
-  // 8. Bronze participant + winner bonuses
-  const bronzeMatch = bracket['THIRD']
-  if (bronzeMatch?.homeTeam && bronzeMatch?.awayTeam) {
-    const actualBronze = knockoutTeamsMap['THIRD']
-    if (actualBronze) {
-      if (bronzeMatch.homeTeam === actualBronze.home) bonus += BONUS_POINTS.bronzeParticipant
-      if (bronzeMatch.awayTeam === actualBronze.away) bonus += BONUS_POINTS.bronzeParticipant
+    // 5. Calculate semifinalists bonus
+    const predictedSemifinalists = getPredictedSemifinalists(userPreds.knockout, bracket)
+    const actualSemifinalists: string[] = []
+    for (let i = 1; i <= 4; i++) {
+      const sf = progressMap.get(`semifinalist_${i}`)
+      if (sf) actualSemifinalists.push(sf)
     }
-    if (actualBronzeWinner) {
-      const bronzePred = userPreds.knockout['THIRD']
-      if (bronzePred) {
-        const predictedBronzeWinner = resolveKnockoutWinner(bronzePred, bronzeMatch.homeTeam, bronzeMatch.awayTeam)
-        if (predictedBronzeWinner === actualBronzeWinner) {
-          bonus += BONUS_POINTS.bronzeWinner
+    const semifinalistMatches = countMatches(predictedSemifinalists, actualSemifinalists)
+    bonus += semifinalistMatches * BONUS_POINTS.semifinalist
+
+    // 6. Calculate finalists bonus
+    const predictedFinalists = getPredictedFinalists(userPreds.knockout, bracket)
+    const actualFinalists: string[] = []
+    for (let i = 1; i <= 2; i++) {
+      const f = progressMap.get(`finalist_${i}`)
+      if (f) actualFinalists.push(f)
+    }
+    const finalistMatches = countMatches(predictedFinalists, actualFinalists)
+    bonus += finalistMatches * BONUS_POINTS.finalist
+
+    // 7. Calculate champion bonus
+    const predictedChampion = getPredictedChampion(userPreds.knockout, bracket)
+    const actualChampion = progressMap.get('champion')
+    if (predictedChampion && actualChampion && predictedChampion === actualChampion) {
+      bonus += BONUS_POINTS.champion
+    }
+
+    // 8. Bronze participant + winner bonuses
+    const bronzeMatch = bracket['THIRD']
+    if (bronzeMatch?.homeTeam && bronzeMatch?.awayTeam) {
+      const actualBronze = knockoutTeamsMap['THIRD']
+      if (actualBronze) {
+        if (bronzeMatch.homeTeam === actualBronze.home) bonus += BONUS_POINTS.bronzeParticipant
+        if (bronzeMatch.awayTeam === actualBronze.away) bonus += BONUS_POINTS.bronzeParticipant
+      }
+      if (actualBronzeWinner) {
+        const bronzePred = userPreds.knockout['THIRD']
+        if (bronzePred) {
+          const predictedBronzeWinner = resolveKnockoutWinner(bronzePred, bronzeMatch.homeTeam, bronzeMatch.awayTeam)
+          if (predictedBronzeWinner === actualBronzeWinner) {
+            bonus += BONUS_POINTS.bronzeWinner
+          }
         }
       }
     }
@@ -507,7 +564,7 @@ export async function recalculateAllScores(): Promise<void> {
     }
 
     // Calculate bonus points using the new helper function
-    const bonusPoints = calculateUserBonusPoints(userPreds, progressMap, knockoutTeamsMap, overrides, actualBronzeWinner)
+    const bonusPoints = calculateUserBonusPoints(userPreds, progressMap, knockoutTeamsMap, overrides, actualBronzeWinner, allResults)
 
     // Check top scorer prediction
     let topScorerBonus = 0
@@ -677,7 +734,7 @@ export async function recalculateUserScore(userId: number): Promise<void> {
   }
 
   // Calculate bonus points using the helper function
-  const bonusPoints = calculateUserBonusPoints(userPreds, progressMap, knockoutTeamsMap, overrides, actualBronzeWinner)
+  const bonusPoints = calculateUserBonusPoints(userPreds, progressMap, knockoutTeamsMap, overrides, actualBronzeWinner, allResults)
 
   // Check top scorer prediction
   let topScorerBonus = 0
