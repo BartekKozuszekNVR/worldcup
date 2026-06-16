@@ -221,6 +221,8 @@
     "bonusGroupWinner": "Correct group winner",
     "bonusGroupRunner": "Correct group runner-up",
     "bonusThirdPlace": "Team advances to knockout",
+    "bonusR16Participant": "Correct R16 participant",
+    "bonusQFParticipant": "Correct QF participant",
     "bonusSemifinalist": "Correct semifinalist",
     "bonusFinalist": "Correct finalist",
     "bonusChampion": "Correct World Champion",
