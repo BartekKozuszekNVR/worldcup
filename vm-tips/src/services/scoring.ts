@@ -19,6 +19,8 @@ export const BONUS_POINTS = {
   groupWinner: 5,
   groupRunner: 3,
   advancing: 2,
+  r16Participant: 3,
+  qfParticipant: 5,
   semifinalist: 10,
   finalist: 15,
   champion: 25,

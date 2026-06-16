@@ -34,6 +34,8 @@ export const BONUS_POINTS = {
   groupWinner: 5,
   groupRunner: 3,
   advancing: 2,
+  r16Participant: 3,
+  qfParticipant: 5,
   semifinalist: 10,
   finalist: 15,
   champion: 25,
@@ -253,6 +255,66 @@ function getPredictedChampion(
 }
 
 /**
+ * Calculate predicted R16 participants (winners of R32 matches)
+ */
+function getPredictedR16Participants(
+  knockoutPredictions: Record<string, KnockoutPrediction>,
+  bracket: Record<string, BracketMatch>
+): string[] {
+  const participants: string[] = []
+  for (let i = 1; i <= 16; i++) {
+    const matchId = `R32-${i}`
+    const prediction = knockoutPredictions[matchId]
+    const match = bracket[matchId]
+    if (prediction && match) {
+      const winner = resolveKnockoutWinner(prediction, match.homeTeam, match.awayTeam)
+      if (winner) participants.push(winner)
+    }
+  }
+  return participants
+}
+
+/**
+ * Calculate predicted QF participants (winners of R16 matches)
+ */
+function getPredictedQFParticipants(
+  knockoutPredictions: Record<string, KnockoutPrediction>,
+  bracket: Record<string, BracketMatch>
+): string[] {
+  const participants: string[] = []
+  for (let i = 1; i <= 8; i++) {
+    const matchId = `R16-${i}`
+    const prediction = knockoutPredictions[matchId]
+    const match = bracket[matchId]
+    if (prediction && match) {
+      const winner = resolveKnockoutWinner(prediction, match.homeTeam, match.awayTeam)
+      if (winner) participants.push(winner)
+    }
+  }
+  return participants
+}
+
+/**
+ * Get actual knockout match winners from results
+ */
+function getActualKnockoutWinners(
+  prefix: string,
+  count: number,
+  allResults: Array<{ matchId: string; homeTeam: string | null; awayTeam: string | null; homeScore: number | null; awayScore: number | null; penaltyWinner: string | null }>
+): string[] {
+  const winners: string[] = []
+  for (let i = 1; i <= count; i++) {
+    const result = allResults.find(r => r.matchId === `${prefix}-${i}`)
+    if (result && result.homeScore !== null && result.awayScore !== null && result.homeTeam && result.awayTeam) {
+      if (result.homeScore > result.awayScore) winners.push(result.homeTeam)
+      else if (result.awayScore > result.homeScore) winners.push(result.awayTeam)
+      else if (result.penaltyWinner) winners.push(result.penaltyWinner)
+    }
+  }
+  return winners
+}
+
+/**
  * Count matches between two arrays
  */
 function countMatches(predicted: string[], actual: string[]): number {
@@ -341,7 +403,7 @@ function calculateUserBonusPoints(
   knockoutTeamsMap: Record<string, { home: string | null; away: string | null }>,
   thirdPlaceOverrides: Record<string, number> = {},
   actualBronzeWinner: string | null = null,
-  allResults: Array<{ matchId: string }> = []
+  allResults: Array<{ matchId: string; homeTeam: string | null; awayTeam: string | null; homeScore: number | null; awayScore: number | null; penaltyWinner: string | null }> = []
 ): number {
   let bonus = 0
 
@@ -386,6 +448,16 @@ function calculateUserBonusPoints(
   // ONLY if knockout matches have results
   if (hasKnockoutResults(allResults)) {
     const bracket = simulateUserBracket(predictedStandings, userPreds.knockout, thirdPlaceOverrides)
+
+    // 4a. Calculate R16 participants bonus (R32 winners)
+    const predictedR16Participants = getPredictedR16Participants(userPreds.knockout, bracket)
+    const actualR16Participants = getActualKnockoutWinners('R32', 16, allResults)
+    bonus += countMatches(predictedR16Participants, actualR16Participants) * BONUS_POINTS.r16Participant
+
+    // 4b. Calculate QF participants bonus (R16 winners)
+    const predictedQFParticipants = getPredictedQFParticipants(userPreds.knockout, bracket)
+    const actualQFParticipants = getActualKnockoutWinners('R16', 8, allResults)
+    bonus += countMatches(predictedQFParticipants, actualQFParticipants) * BONUS_POINTS.qfParticipant
 
     // 5. Calculate semifinalists bonus
     const predictedSemifinalists = getPredictedSemifinalists(userPreds.knockout, bracket)
