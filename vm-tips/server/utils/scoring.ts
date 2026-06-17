@@ -395,6 +395,22 @@ function hasKnockoutResults(allResults: Array<{ matchId: string }>): boolean {
 }
 
 /**
+ * Check if all matches in a knockout round have results
+ * e.g. isKnockoutRoundComplete('R32', 16) requires all 16 R32 matches to have scores
+ */
+function isKnockoutRoundComplete(
+  prefix: string,
+  count: number,
+  allResults: Array<{ matchId: string; homeScore: number | null; awayScore: number | null }>
+): boolean {
+  for (let i = 1; i <= count; i++) {
+    const result = allResults.find(r => r.matchId === `${prefix}-${i}`)
+    if (!result || result.homeScore === null || result.awayScore === null) return false
+  }
+  return true
+}
+
+/**
  * Calculate full bonus points for a user
  */
 function calculateUserBonusPoints(
@@ -450,40 +466,56 @@ function calculateUserBonusPoints(
     const bracket = simulateUserBracket(predictedStandings, userPreds.knockout, thirdPlaceOverrides)
 
     // 4a. Calculate R16 participants bonus (R32 winners)
-    const predictedR16Participants = getPredictedR16Participants(userPreds.knockout, bracket)
-    const actualR16Participants = getActualKnockoutWinners('R32', 16, allResults)
-    bonus += countMatches(predictedR16Participants, actualR16Participants) * BONUS_POINTS.r16Participant
+    // Awarded only once all 16 R32 matches have been played
+    if (isKnockoutRoundComplete('R32', 16, allResults)) {
+      const predictedR16Participants = getPredictedR16Participants(userPreds.knockout, bracket)
+      const actualR16Participants = getActualKnockoutWinners('R32', 16, allResults)
+      bonus += countMatches(predictedR16Participants, actualR16Participants) * BONUS_POINTS.r16Participant
+    }
 
     // 4b. Calculate QF participants bonus (R16 winners)
-    const predictedQFParticipants = getPredictedQFParticipants(userPreds.knockout, bracket)
-    const actualQFParticipants = getActualKnockoutWinners('R16', 8, allResults)
-    bonus += countMatches(predictedQFParticipants, actualQFParticipants) * BONUS_POINTS.qfParticipant
+    // Awarded only once all 8 R16 matches have been played
+    if (isKnockoutRoundComplete('R16', 8, allResults)) {
+      const predictedQFParticipants = getPredictedQFParticipants(userPreds.knockout, bracket)
+      const actualQFParticipants = getActualKnockoutWinners('R16', 8, allResults)
+      bonus += countMatches(predictedQFParticipants, actualQFParticipants) * BONUS_POINTS.qfParticipant
+    }
 
     // 5. Calculate semifinalists bonus
-    const predictedSemifinalists = getPredictedSemifinalists(userPreds.knockout, bracket)
-    const actualSemifinalists: string[] = []
-    for (let i = 1; i <= 4; i++) {
-      const sf = progressMap.get(`semifinalist_${i}`)
-      if (sf) actualSemifinalists.push(sf)
+    // Awarded only once all 4 QF matches have been played
+    if (isKnockoutRoundComplete('QF', 4, allResults)) {
+      const predictedSemifinalists = getPredictedSemifinalists(userPreds.knockout, bracket)
+      const actualSemifinalists: string[] = []
+      for (let i = 1; i <= 4; i++) {
+        const sf = progressMap.get(`semifinalist_${i}`)
+        if (sf) actualSemifinalists.push(sf)
+      }
+      const semifinalistMatches = countMatches(predictedSemifinalists, actualSemifinalists)
+      bonus += semifinalistMatches * BONUS_POINTS.semifinalist
     }
-    const semifinalistMatches = countMatches(predictedSemifinalists, actualSemifinalists)
-    bonus += semifinalistMatches * BONUS_POINTS.semifinalist
 
     // 6. Calculate finalists bonus
-    const predictedFinalists = getPredictedFinalists(userPreds.knockout, bracket)
-    const actualFinalists: string[] = []
-    for (let i = 1; i <= 2; i++) {
-      const f = progressMap.get(`finalist_${i}`)
-      if (f) actualFinalists.push(f)
+    // Awarded only once both SF matches have been played
+    if (isKnockoutRoundComplete('SF', 2, allResults)) {
+      const predictedFinalists = getPredictedFinalists(userPreds.knockout, bracket)
+      const actualFinalists: string[] = []
+      for (let i = 1; i <= 2; i++) {
+        const f = progressMap.get(`finalist_${i}`)
+        if (f) actualFinalists.push(f)
+      }
+      const finalistMatches = countMatches(predictedFinalists, actualFinalists)
+      bonus += finalistMatches * BONUS_POINTS.finalist
     }
-    const finalistMatches = countMatches(predictedFinalists, actualFinalists)
-    bonus += finalistMatches * BONUS_POINTS.finalist
 
     // 7. Calculate champion bonus
-    const predictedChampion = getPredictedChampion(userPreds.knockout, bracket)
-    const actualChampion = progressMap.get('champion')
-    if (predictedChampion && actualChampion && predictedChampion === actualChampion) {
-      bonus += BONUS_POINTS.champion
+    // Awarded only once the Final has been played
+    const finalPlayed = allResults.some(r => r.matchId === 'FINAL' && r.homeScore !== null && r.awayScore !== null)
+    if (finalPlayed) {
+      const predictedChampion = getPredictedChampion(userPreds.knockout, bracket)
+      const actualChampion = progressMap.get('champion')
+      if (predictedChampion && actualChampion && predictedChampion === actualChampion) {
+        bonus += BONUS_POINTS.champion
+      }
     }
 
     // 8. Bronze participant + winner bonuses
