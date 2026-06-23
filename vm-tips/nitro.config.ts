@@ -30,5 +30,12 @@ export default defineNitroConfig({
         'Access-Control-Allow-Credentials': 'true',
       },
     },
+    // Leaderboard is public and only changes when an admin saves results.
+    // Cache at the CDN edge for 60s; serve stale while revalidating for up to 5 min.
+    '/api/leaderboard': {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      },
+    },
   },
 })

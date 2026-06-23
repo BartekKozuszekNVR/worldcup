@@ -28,16 +28,24 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Get only matches with complete results (both scores not null)
-  const results = await db
-    .select()
-    .from(matchResults)
-    .where(
-      and(
-        isNotNull(matchResults.homeScore),
-        isNotNull(matchResults.awayScore)
-      )
-    )
+  // Run all independent DB queries in parallel to minimize round-trips to Turso
+  const [results, progress, userPredictions, cachedScore, overrideRows, topScorerPred] = await Promise.all([
+    // Get only matches with complete results (both scores not null)
+    db
+      .select()
+      .from(matchResults)
+      .where(and(isNotNull(matchResults.homeScore), isNotNull(matchResults.awayScore))),
+    // Get tournament progress for bonus data
+    db.select().from(tournamentProgress),
+    // Get user's predictions to compute per-match scores
+    db.select().from(predictions).where(eq(predictions.userId, user.id)),
+    // Get cached user scores from authoritative source
+    db.select().from(userScores).where(eq(userScores.userId, user.id)).limit(1),
+    // Get user's third-place overrides for bracket simulation
+    db.select().from(thirdPlaceOverridesTable).where(eq(thirdPlaceOverridesTable.userId, user.id)),
+    // Get user's top scorer prediction
+    db.select().from(topScorerPredictions).where(eq(topScorerPredictions.userId, user.id)).limit(1),
+  ])
 
   // Format results with stage info
   const formattedResults = results.map((r) => ({
@@ -50,40 +58,20 @@ export default defineEventHandler(async (event) => {
     penaltyWinner: r.penaltyWinner,
   }))
 
-  // Get tournament progress for bonus data
-  const progress = await db.select().from(tournamentProgress)
   const bonusData: Record<string, string> = {}
   for (const entry of progress) {
     bonusData[entry.key] = entry.teamCode
   }
-
-  // Get user's predictions to compute per-match scores
-  const userPredictions = await db
-    .select()
-    .from(predictions)
-    .where(eq(predictions.userId, user.id))
 
   const predictionsMap = new Map<string, { homeScore: number | null; awayScore: number | null }>()
   for (const pred of userPredictions) {
     predictionsMap.set(pred.matchId, { homeScore: pred.homeScore, awayScore: pred.awayScore })
   }
 
-  // Get cached user scores from authoritative source
-  const cachedScore = await db
-    .select()
-    .from(userScores)
-    .where(eq(userScores.userId, user.id))
-    .limit(1)
-
   const matchPoints = cachedScore.length > 0 ? cachedScore[0].matchPoints : 0
   const bonusPoints = cachedScore.length > 0 ? cachedScore[0].bonusPoints : 0
   const totalPoints = cachedScore.length > 0 ? cachedScore[0].totalPoints : 0
 
-  // Get user's third-place overrides and simulate their bracket for teamsMatch checks
-  const overrideRows = await db
-    .select()
-    .from(thirdPlaceOverridesTable)
-    .where(eq(thirdPlaceOverridesTable.userId, user.id))
   const overrides: Record<string, number> = {}
   for (const row of overrideRows) {
     overrides[row.teamCode] = row.rank
@@ -127,13 +115,6 @@ export default defineEventHandler(async (event) => {
       scores[result.matchId] = { points: 0, type: 'miss' }
     }
   }
-
-  // Get user's top scorer prediction and status
-  const topScorerPred = await db
-    .select()
-    .from(topScorerPredictions)
-    .where(eq(topScorerPredictions.userId, user.id))
-    .limit(1)
 
   // Top scorer bonus (not included in displayed bonusPoints to avoid double-count)
   const topScorerPoints = topScorerPred.length > 0 && topScorerPred[0].isCorrect === 1 ? BONUS_POINTS.topScorer : 0

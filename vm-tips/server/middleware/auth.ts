@@ -29,6 +29,11 @@ export default defineEventHandler(async (event) => {
   // Check if route is public
   const isPublic = PUBLIC_ROUTES.some((route) => path.startsWith(route))
 
+  // Skip session validation entirely for public routes — no DB round-trip needed
+  if (isPublic) {
+    return
+  }
+
   // Get session ID from cookie or header
   const sessionId = getSessionId(event)
 
@@ -45,7 +50,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // If route requires auth and no valid session, return 401
-  if (!isPublic && !event.context.user) {
+  if (!event.context.user) {
     throw createError({
       statusCode: 401,
       statusMessage: 'Unauthorized',
