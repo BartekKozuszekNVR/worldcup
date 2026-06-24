@@ -14,6 +14,7 @@ import {
   finalRule,
 } from '../../shared/bracketRules'
 import { thirdPlaceCombinations } from '../../shared/thirdPlaceCombinations'
+import { sortGroupStandings } from '../../shared/groupSorting'
 import ScoreInput from '../components/ScoreInput.vue'
 import TeamFlag from '../components/TeamFlag.vue'
 import { apiFetch } from '../composables/useApi'
@@ -137,9 +138,9 @@ interface TeamStanding {
   won: number
   drawn: number
   lost: number
-  gf: number
-  ga: number
-  gd: number
+  goalsFor: number
+  goalsAgainst: number
+  goalDiff: number
   points: number
 }
 
@@ -154,7 +155,7 @@ const groupStandings = computed(() => {
       teamMap[team.code] = {
         code: team.code,
         played: 0, won: 0, drawn: 0, lost: 0,
-        gf: 0, ga: 0, gd: 0, points: 0,
+        goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0,
       }
     }
 
@@ -170,10 +171,10 @@ const groupStandings = computed(() => {
 
       home.played++
       away.played++
-      home.gf += result.homeScore
-      home.ga += result.awayScore
-      away.gf += result.awayScore
-      away.ga += result.homeScore
+      home.goalsFor += result.homeScore
+      home.goalsAgainst += result.awayScore
+      away.goalsFor += result.awayScore
+      away.goalsAgainst += result.homeScore
 
       if (result.homeScore > result.awayScore) {
         home.won++; home.points += 3
@@ -187,12 +188,23 @@ const groupStandings = computed(() => {
       }
     }
 
-    // Compute GD and sort
-    const sorted = Object.values(teamMap)
-      .map(t => ({ ...t, gd: t.gf - t.ga }))
-      .sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf)
+    // Compute GD for each team
+    for (const team of Object.values(teamMap)) {
+      team.goalDiff = team.goalsFor - team.goalsAgainst
+    }
 
-    standings[group] = sorted
+    // Build predictions map for FIFA-compliant head-to-head tiebreaker
+    const predMap: Record<string, { homeScore: number | null; awayScore: number | null }> = {}
+    for (const match of groupMatchList) {
+      const result = scoresStore.results.find(r => r.matchId === match.id)
+      predMap[match.id] = {
+        homeScore: result?.homeScore ?? null,
+        awayScore: result?.awayScore ?? null,
+      }
+    }
+
+    // Sort using the same FIFA-compliant function as the server
+    standings[group] = sortGroupStandings(Object.values(teamMap), groupMatchList, predMap)
   }
 
   return standings
@@ -593,6 +605,25 @@ function getBracketWinner(matchId: string, progress: Record<string, string>): st
   return progress[key] || undefined
 }
 
+async function saveGroupProgress(group: string) {
+  const payload: Record<string, string> = {}
+  const winner = progressData[`group${group}_winner`]
+  const runner = progressData[`group${group}_runner`]
+  if (winner) payload[`group${group}_winner`] = winner
+  if (runner) payload[`group${group}_runner`] = runner
+  if (!Object.keys(payload).length) return
+
+  $q.loading.show({ message: 'Saving...' })
+  try {
+    await scoresStore.saveProgress(payload)
+    $q.notify({ type: 'positive', message: `Group ${group} saved` })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to save' })
+  } finally {
+    $q.loading.hide()
+  }
+}
+
 async function saveAllProgress() {
   $q.loading.show({ message: 'Saving...' })
   try {
@@ -852,6 +883,9 @@ onMounted(async () => {
                       </div>
                     </template>
                   </q-select>
+                  <div class="row justify-end q-mt-xs">
+                    <q-btn dense flat icon="save" color="primary" size="sm" @click="saveGroupProgress(group)" />
+                  </div>
                 </q-card>
               </div>
             </div>
