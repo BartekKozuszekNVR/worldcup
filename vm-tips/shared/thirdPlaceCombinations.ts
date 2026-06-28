@@ -466,7 +466,7 @@ export const thirdPlaceCombinations: ThirdPlaceCombination[] = [
   { id: 426, groups: ["B","D","E","F","H","I","J","L"], assignments: { A: 'E', B: 'F', D: 'J', E: 'B', G: 'H', I: 'D', K: 'L', L: 'I' } },
   { id: 427, groups: ["B","D","E","F","H","I","K","L"], assignments: { A: 'E', B: 'F', D: 'I', E: 'B', G: 'H', I: 'D', K: 'L', L: 'K' } },
   { id: 428, groups: ["B","D","E","F","H","J","K","L"], assignments: { A: 'E', B: 'F', D: 'J', E: 'B', G: 'H', I: 'D', K: 'L', L: 'K' } },
-  { id: 429, groups: ["B","D","E","F","I","J","K","L"], assignments: { A: 'E', B: 'F', D: 'I', E: 'B', G: 'J', I: 'D', K: 'L', L: 'K' } },
+  { id: 429, groups: ["B","D","E","F","I","J","K","L"], assignments: { A: 'E', B: 'J', D: 'B', E: 'D', G: 'I', I: 'F', K: 'L', L: 'K' } },
   { id: 430, groups: ["B","D","E","G","H","I","J","K"], assignments: { A: 'E', B: 'G', D: 'J', E: 'B', G: 'H', I: 'D', K: 'I', L: 'K' } },
   { id: 431, groups: ["B","D","E","G","H","I","J","L"], assignments: { A: 'E', B: 'G', D: 'J', E: 'B', G: 'H', I: 'D', K: 'L', L: 'I' } },
   { id: 432, groups: ["B","D","E","G","H","I","K","L"], assignments: { A: 'E', B: 'G', D: 'I', E: 'B', G: 'H', I: 'D', K: 'L', L: 'K' } },
