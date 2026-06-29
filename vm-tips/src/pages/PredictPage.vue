@@ -216,7 +216,7 @@ async function save() {
           :key="group"
           :label="`${t('predictions.group')} ${group}`"
           header-class="text-weight-bold text-h6 q-my-md bg-primary-light"
-          default-opened
+          default-closed
           dense
         >
           <GroupCard

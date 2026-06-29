@@ -6,6 +6,7 @@ import { usePredictionsStore } from '../stores/predictions'
 import { teams } from '../data/teams'
 import TeamFlag from '../components/TeamFlag.vue'
 import PointsSummary from '../components/PointsSummary.vue'
+import { matchNumbers } from '../data/matchNumbers'
 
 const { t, locale } = useI18n()
 const scoresStore = useScoresStore()
@@ -34,6 +35,7 @@ function stageName(stage: string): string {
 const matchResults = computed(() => {
   return scoresStore.results.map(r => {
     const pred = predictionsStore.predictions[r.matchId]
+      ?? predictionsStore.knockoutPredictions[r.matchId]
     const scoreInfo = scoresStore.userPoints.scores[r.matchId]
     return {
       matchId: r.matchId,
@@ -150,7 +152,9 @@ onMounted(async () => {
         <q-card-section class="q-py-sm q-px-md">
           <!-- Header: match ID + stage + points chip -->
           <div class="row items-center q-mb-xs">
-            <span class="text-caption text-grey-7 text-weight-medium">{{ result.matchId }}</span>
+            <span class="text-caption text-grey-7 text-weight-medium">
+              {{ matchNumbers[result.matchId] ? 'Match ' + matchNumbers[result.matchId] : result.matchId }}
+            </span>
             <span class="text-caption text-grey-5 q-ml-xs">&middot; {{ stageName(result.stage) }}</span>
             <q-space />
             <q-chip
