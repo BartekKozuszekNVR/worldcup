@@ -13,6 +13,7 @@ import { isTournamentLocked } from '../../shared/constants'
 import type { SimulatedTeam, KnockoutPrediction } from '../types'
 import { apiFetch } from '../composables/useApi'
 import TeamFlag from '../components/TeamFlag.vue'
+import { matchNumbers } from '../data/matchNumbers'
 
 const { t } = useI18n()
 const $q = useQuasar()
@@ -239,6 +240,25 @@ onMounted(async () => {
     <q-card class="q-mb-md">
       <q-card-section>
         <div class="text-h6">{{ t('advancing.knockout') }}</div>
+        <q-banner rounded class="bg-blue-1 text-blue-9 q-mt-sm">
+          <template #avatar>
+            <q-icon name="public" color="blue-7" />
+          </template>
+          {{ t('predictions.knockoutBracketBanner') }}
+          <template #action>
+            <q-btn
+              flat
+              dense
+              color="blue-7"
+              label="FIFA.com"
+              icon-right="open_in_new"
+              type="a"
+              href="https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/knockout-stage-match-schedule-bracket"
+              target="_blank"
+              rel="noopener"
+            />
+          </template>
+        </q-banner>
       </q-card-section>
 
       <q-card-section
@@ -253,9 +273,9 @@ onMounted(async () => {
           :key="match.id"
           flat
           bordered
-          class="q-mb-sm"
+          class="q-mb-md"
         >
-          <q-card-section class="q-py-sm q-px-md">
+          <q-card-section class="q-pa-md">
             <div class="row items-center no-wrap">
               <!-- Home team -->
               <div class="row items-center no-wrap col">
@@ -303,6 +323,9 @@ onMounted(async () => {
                 <span class="text-caption text-grey-7">{{ t('results.penaltyAdvanced') }}</span>
               </div>
             </div>
+
+            <!-- Match number -->
+            <div v-if="matchNumbers[match.id]" class="text-caption text-grey-6 q-my-sm">Match {{ matchNumbers[match.id] }}</div>
           </q-card-section>
         </q-card>
 

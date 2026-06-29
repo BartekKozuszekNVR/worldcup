@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { teams } from '../data/teams'
+import { matchNumbers } from '../data/matchNumbers'
 import TeamFlag from './TeamFlag.vue'
 
 const { locale } = useI18n()
@@ -37,11 +39,13 @@ function parseScore(val: string | number | null): number | null {
 
 const isDraw = () =>
   props.homeScore !== null && props.awayScore !== null && props.homeScore === props.awayScore
+
+const matchNumber = computed(() => matchNumbers[props.matchId] ?? null)
 </script>
 
 <template>
   <q-card flat bordered class="q-mb-sm knockout-match">
-    <q-card-section class="q-py-sm q-px-md">
+    <q-card-section class="q-pt-sm q-px-md q-pb-md">
       <div class="row items-center no-wrap">
         <!-- Home team -->
         <div class="row items-center no-wrap col">
@@ -107,6 +111,9 @@ const isDraw = () =>
           @update:model-value="emit('update:penaltyWinner', $event)"
         />
       </div>
+
+      <!-- Match number -->
+      <div v-if="matchNumber" class="match-number">Match {{ matchNumber }}</div>
     </q-card-section>
   </q-card>
 </template>
@@ -127,5 +134,19 @@ const isDraw = () =>
   text-overflow: ellipsis;
   max-width: 100%;
   display: block;
+}
+.match-number {
+  position: absolute;
+  bottom: 4px;
+  left: 8px;
+  font-size: 10px;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  user-select: none;
+}
+
+.knockout-match {
+  position: relative;
 }
 </style>

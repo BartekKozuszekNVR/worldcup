@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { useScoresStore } from '../stores/scores'
 import { groupMatches, GROUPS } from '../data/groupMatches'
 import { teams } from '../data/teams'
+import { matchNumbers } from '../data/matchNumbers'
 import {
   roundOf32Rules,
   roundOf16Rules,
@@ -938,7 +939,7 @@ onMounted(async () => {
           </q-card-section>
           <q-card-section class="q-pt-none">
             <div v-for="match in r32Options" :key="match.id" class="row q-mb-sm q-pa-sm items-center" style="border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;">
-              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 55px">{{ match.id }}</div>
+              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 90px">{{ match.id }} · {{ matchNumbers[match.id] }}</div>
               <div class="col-12 col-sm">
                 <ScoreInput
                   :match-id="match.id"
@@ -992,7 +993,7 @@ onMounted(async () => {
           </q-card-section>
           <q-card-section class="q-pt-none">
             <div v-for="match in r16Options" :key="match.id" class="row q-mb-sm q-pa-sm items-center" style="border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;">
-              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 55px">{{ match.id }}</div>
+              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 90px">{{ match.id }} · {{ matchNumbers[match.id] }}</div>
               <div class="col-12 col-sm">
                 <ScoreInput
                   :match-id="match.id"
@@ -1046,7 +1047,7 @@ onMounted(async () => {
           </q-card-section>
           <q-card-section class="q-pt-none">
             <div v-for="match in qfOptions" :key="match.id" class="row q-mb-sm q-pa-sm items-center" style="border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;">
-              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 55px">{{ match.id }}</div>
+              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 90px">{{ match.id }} · {{ matchNumbers[match.id] }}</div>
               <div class="col-12 col-sm">
                 <ScoreInput
                   :match-id="match.id"
@@ -1100,7 +1101,7 @@ onMounted(async () => {
           </q-card-section>
           <q-card-section class="q-pt-none">
             <div v-for="match in sfOptions" :key="match.id" class="row q-mb-sm q-pa-sm items-center" style="border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;">
-              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 55px">{{ match.id }}</div>
+              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 90px">{{ match.id }} · {{ matchNumbers[match.id] }}</div>
               <div class="col-12 col-sm">
                 <ScoreInput
                   :match-id="match.id"
@@ -1154,7 +1155,7 @@ onMounted(async () => {
           </q-card-section>
           <q-card-section class="q-pt-none">
             <div class="row q-mb-sm q-pa-sm items-center" style="border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;">
-              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 55px">THIRD</div>
+              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 90px">THIRD · {{ matchNumbers['THIRD'] }}</div>
               <div class="col-12 col-sm">
                 <ScoreInput
                   match-id="THIRD"
@@ -1178,7 +1179,7 @@ onMounted(async () => {
           </q-card-section>
           <q-card-section class="q-pt-none">
             <div class="row q-mb-sm q-pa-sm items-center" style="border: 1px solid rgba(0,0,0,0.08); border-radius: 4px;">
-              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 55px">FINAL</div>
+              <div class="col-12 col-sm-auto text-caption text-grey q-py-xs" style="min-width: 90px">FINAL · {{ matchNumbers['FINAL'] }}</div>
               <div class="col-12 col-sm">
                 <ScoreInput
                   match-id="FINAL"

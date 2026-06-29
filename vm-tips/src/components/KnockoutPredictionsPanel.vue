@@ -60,6 +60,25 @@ function isStageUnlocked(stageIndex: number): boolean {
   <q-card flat bordered class="q-mb-md">
     <q-card-section>
       <div class="text-h6">{{ $t('predictions.knockout') }}</div>
+      <q-banner rounded class="bg-blue-1 text-blue-9 q-mt-sm">
+        <template #avatar>
+          <q-icon name="public" color="blue-7" />
+        </template>
+        {{ $t('predictions.knockoutBracketBanner') }}
+        <template #action>
+          <q-btn
+            flat
+            dense
+            color="blue-7"
+            label="FIFA.com"
+            icon-right="open_in_new"
+            type="a"
+            href="https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/knockout-stage-match-schedule-bracket"
+            target="_blank"
+            rel="noopener"
+          />
+        </template>
+      </q-banner>
     </q-card-section>
 
     <q-card-section
